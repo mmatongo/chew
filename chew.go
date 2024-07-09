@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -45,7 +44,12 @@ var contentTypeProcessors = map[string]func(io.Reader, string) ([]Chunk, error){
 	contentTypeMarkdown: processMarkdown,
 }
 
-func Process(ctx context.Context, urls []string) ([]Chunk, error) {
+func Process(urls []string, ctxs ...context.Context) ([]Chunk, error) {
+	ctx := context.Background()
+	if len(ctxs) > 0 {
+		ctx = ctxs[0]
+	}
+
 	var (
 		result []Chunk
 		wg     sync.WaitGroup
@@ -57,28 +61,46 @@ func Process(ctx context.Context, urls []string) ([]Chunk, error) {
 		wg.Add(1)
 		go func(url string) {
 			defer wg.Done()
-			chunks, err := processURL(ctx, url)
-			if err != nil {
-				errCh <- fmt.Errorf("processing %s, %w", url, err)
+			select {
+			case <-ctx.Done():
+				errCh <- ctx.Err()
 				return
+			default:
+				chunks, err := processURL(url, ctx)
+				if err != nil {
+					errCh <- fmt.Errorf("processing %s, %w", url, err)
+					return
+				}
+				mu.Lock()
+				result = append(result, chunks...)
+				mu.Unlock()
 			}
-			mu.Lock()
-			result = append(result, chunks...)
-			mu.Unlock()
 		}(url)
 	}
 
-	wg.Wait()
-	close(errCh)
+	go func() {
+		wg.Wait()
+		close(errCh)
+	}()
 
-	if err := <-errCh; err != nil {
-		return nil, err
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return nil, err
+		}
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 
 	return result, nil
 }
 
-func processURL(ctx context.Context, url string) ([]Chunk, error) {
+func processURL(url string, ctxs ...context.Context) ([]Chunk, error) {
+	ctx := context.Background()
+	if len(ctxs) > 0 {
+		ctx = ctxs[0]
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -116,13 +138,10 @@ func processHTML(r io.Reader, url string) ([]Chunk, error) {
 	var chunks []Chunk
 	doc.Find("p, h1, h2, h3, h4, h5, h6").Each(func(i int, s *goquery.Selection) {
 		text := strings.TrimSpace(s.Text())
-		log.Println(text)
 		if text != "" {
 			chunks = append(chunks, Chunk{Content: text, Source: url})
 		}
 	})
-
-	fmt.Println(doc)
 
 	return chunks, nil
 }
