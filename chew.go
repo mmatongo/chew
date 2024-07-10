@@ -21,6 +21,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/mmatongo/chew/internal/docx"
+	"github.com/mmatongo/chew/internal/markdown"
+	"github.com/mmatongo/chew/internal/utils"
 )
 
 type Chunk struct {
@@ -30,6 +32,7 @@ type Chunk struct {
 
 const (
 	contentTypeHTML     = "text/html"
+	contentTypeText     = "text/plain"
 	contentTypePDF      = "application/pdf"
 	contentTypeCSV      = "text/csv"
 	contentTypeJSON     = "application/json"
@@ -46,8 +49,49 @@ var contentTypeProcessors = map[string]func(io.Reader, string) ([]Chunk, error){
 	contentTypeYAML:     processYAML,
 	contentTypeMarkdown: processMarkdown,
 	contentTypeDocx:     processDocx,
+	contentTypeText:     processText,
 }
 
+/*
+This is meant as a fallback in case the content type is not recognized and to enforce
+the content type based on the file extension instead of the content type
+returned by the server. i.e. if the server returns text/plain but the file is a markdown file
+the content types are the biggest culprits of this
+*/
+var validExtensions = map[string]func(io.Reader, string) ([]Chunk, error){
+	".md":   processMarkdown,
+	".csv":  processCSV,
+	".json": processJSON,
+	".yaml": processYAML,
+	".html": processHTML,
+}
+
+func getProcessor(contentType, url string) (func(io.Reader, string) ([]Chunk, error), error) {
+	for key, proc := range contentTypeProcessors {
+		if strings.Contains(contentType, key) {
+			return proc, nil
+		}
+	}
+
+	ext, err := utils.GetFileExtensionFromUrl(url)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't get file extension from url: %s", err)
+	}
+
+	if proc, ok := validExtensions[ext]; ok {
+		return proc, nil
+	}
+
+	return nil, fmt.Errorf("unsupported content type: %s", contentType)
+}
+
+/*
+Process takes a list of URLs and returns a list of Chunks
+
+The slice of strings to be processed can be URLs or file paths
+The context is optional and can be used to cancel the processing
+of the URLs after a certain amount of time
+*/
 func Process(urls []string, ctxs ...context.Context) ([]Chunk, error) {
 	ctx := context.Background()
 	if len(ctxs) > 0 {
@@ -118,16 +162,9 @@ func processURL(url string, ctxs ...context.Context) ([]Chunk, error) {
 
 	contentType := resp.Header.Get("Content-Type")
 
-	var processor func(io.Reader, string) ([]Chunk, error)
-	for key, proc := range contentTypeProcessors {
-		if strings.Contains(contentType, key) {
-			processor = proc
-			break
-		}
-	}
-
-	if processor == nil {
-		return nil, fmt.Errorf("unsupported content type: %s", contentType)
+	processor, err := getProcessor(contentType, url)
+	if err != nil {
+		return nil, err
 	}
 
 	return processor(resp.Body, url)
@@ -255,8 +292,9 @@ func processMarkdown(r io.Reader, url string) ([]Chunk, error) {
 	if err != nil {
 		return nil, err
 	}
+	sanitizedMarkdown := markdown.RemoveMarkdownSyntax(string(content))
 
-	return []Chunk{{Content: string(content), Source: url}}, nil
+	return []Chunk{{Content: sanitizedMarkdown, Source: url}}, nil
 }
 
 func processDocx(r io.Reader, url string) ([]Chunk, error) {
@@ -273,4 +311,18 @@ func processDocx(r io.Reader, url string) ([]Chunk, error) {
 	}
 
 	return chunks, nil
+}
+
+/*
+Not entirely sure about this one because I've had instances where the
+content type is text/plain but the content is actually HTML
+So I'm just going to leave it here for now
+*/
+func processText(r io.Reader, url string) ([]Chunk, error) {
+	content, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return []Chunk{{Content: string(content), Source: url}}, nil
 }
