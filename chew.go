@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -76,7 +75,7 @@ func getProcessor(contentType, url string) (func(io.Reader, string) ([]Chunk, er
 
 	ext, err := utils.GetFileExtensionFromUrl(url)
 	if err != nil {
-		log.Printf("couldn't get file extension from url: %v", err)
+		return nil, fmt.Errorf("couldn't get file extension from url: %s", err)
 	}
 
 	if proc, ok := validExtensions[ext]; ok {
