@@ -19,6 +19,8 @@ import (
 	"github.com/unidoc/unipdf/v3/extractor"
 	"github.com/unidoc/unipdf/v3/model"
 	"gopkg.in/yaml.v3"
+
+	"github.com/mmatongo/chew/internal/docx"
 )
 
 type Chunk struct {
@@ -33,6 +35,7 @@ const (
 	contentTypeJSON     = "application/json"
 	contentTypeYAML     = "application/x-yaml"
 	contentTypeMarkdown = "text/markdown"
+	contentTypeDocx     = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 )
 
 var contentTypeProcessors = map[string]func(io.Reader, string) ([]Chunk, error){
@@ -42,6 +45,7 @@ var contentTypeProcessors = map[string]func(io.Reader, string) ([]Chunk, error){
 	contentTypeJSON:     processJSON,
 	contentTypeYAML:     processYAML,
 	contentTypeMarkdown: processMarkdown,
+	contentTypeDocx:     processDocx,
 }
 
 func Process(urls []string, ctxs ...context.Context) ([]Chunk, error) {
@@ -253,4 +257,20 @@ func processMarkdown(r io.Reader, url string) ([]Chunk, error) {
 	}
 
 	return []Chunk{{Content: string(content), Source: url}}, nil
+}
+
+func processDocx(r io.Reader, url string) ([]Chunk, error) {
+	content, err := docx.ProcessDocx(r)
+	if err != nil {
+		return nil, err
+	}
+
+	var chunks []Chunk
+	for _, chunk := range content {
+		if strings.TrimSpace(string(chunk)) != "" {
+			chunks = append(chunks, Chunk{Content: string(chunk), Source: url})
+		}
+	}
+
+	return chunks, nil
 }

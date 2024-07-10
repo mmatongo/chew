@@ -2,7 +2,7 @@ Chew is a Go library for processing various content types into markdown.
 
 ## Features
 
-- Supports multiple content types: HTML, PDF, CSV, JSON, YAML, and Markdown
+- Supports multiple content types: HTML, PDF, CSV, JSON, YAML, DOCX, and Markdown
 - Concurrent processing of multiple URLs
 - Context-aware
 
