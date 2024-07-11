@@ -21,7 +21,6 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/mmatongo/chew/internal/docx"
-	"github.com/mmatongo/chew/internal/markdown"
 	"github.com/mmatongo/chew/internal/utils"
 )
 
@@ -47,7 +46,7 @@ var contentTypeProcessors = map[string]func(io.Reader, string) ([]Chunk, error){
 	contentTypeCSV:      processCSV,
 	contentTypeJSON:     processJSON,
 	contentTypeYAML:     processYAML,
-	contentTypeMarkdown: processMarkdown,
+	contentTypeMarkdown: processText,
 	contentTypeDocx:     processDocx,
 	contentTypeText:     processText,
 }
@@ -59,7 +58,7 @@ returned by the server. i.e. if the server returns text/plain but the file is a 
 the content types are the biggest culprits of this
 */
 var validExtensions = map[string]func(io.Reader, string) ([]Chunk, error){
-	".md":   processMarkdown,
+	".md":   processText,
 	".csv":  processCSV,
 	".json": processJSON,
 	".yaml": processYAML,
@@ -287,6 +286,10 @@ func processYAML(r io.Reader, url string) ([]Chunk, error) {
 	return []Chunk{{Content: string(yamlStr), Source: url}}, nil
 }
 
+/*
+Not necessarily a good idea to sanitize markdown content
+if theres a need to sanitize markdown content it should be optional
+
 func processMarkdown(r io.Reader, url string) ([]Chunk, error) {
 	content, err := io.ReadAll(r)
 	if err != nil {
@@ -296,6 +299,7 @@ func processMarkdown(r io.Reader, url string) ([]Chunk, error) {
 
 	return []Chunk{{Content: sanitizedMarkdown, Source: url}}, nil
 }
+*/
 
 func processDocx(r io.Reader, url string) ([]Chunk, error) {
 	content, err := docx.ProcessDocx(r)
