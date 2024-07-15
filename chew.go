@@ -173,7 +173,7 @@ func processHTML(r io.Reader, url string) ([]Chunk, error) {
 	}
 
 	var chunks []Chunk
-	doc.Find("p, h1, h2, h3, h4, h5, h6, article.p").Each(func(_ int, s *goquery.Selection) {
+	doc.Find("p, h1, h2, h3, h4, h5, h6").Each(func(_ int, s *goquery.Selection) {
 		text := strings.TrimSpace(s.Text())
 		if text != "" {
 			chunks = append(chunks, Chunk{Content: text, Source: url})
