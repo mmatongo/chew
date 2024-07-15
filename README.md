@@ -1,3 +1,9 @@
+# Chew
+
+[![Go Report Card](https://goreportcard.com/badge/github.com/mmatongo/chew)](https://goreportcard.com/report/github.com/mmatongo/chew)
+[![GoDoc](https://godoc.org/github.com/mmatongo/chew?status.svg)](https://pkg.go.dev/github.com/mmatongo/chew)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+
 Chew is a Go library for processing various content types into markdown.
 
 ## Features
@@ -66,15 +72,8 @@ Source: https://example.com
 Content: More information...
 ```
 
-### TODO
-
-- [ ] Add tests
-- [ ] Improve error handling
-- [ ] Add support for more content types
-- [ ] Implement rate limiting for URL fetching
-- [x] Use a free PDF processing library
-- [ ] How to handle text/plain content type
-
-
-## License
+### License
 [MIT](./LICENSE)
+
+### Roadmap
+[TODO](./TODO.md)
