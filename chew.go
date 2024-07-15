@@ -5,9 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
-	"os"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -15,9 +14,7 @@ import (
 	"encoding/json"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/unidoc/unipdf/v3/common/license"
-	"github.com/unidoc/unipdf/v3/extractor"
-	"github.com/unidoc/unipdf/v3/model"
+	"github.com/ledongthuc/pdf"
 	"gopkg.in/yaml.v3"
 
 	"github.com/mmatongo/chew/internal/docx"
@@ -176,7 +173,7 @@ func processHTML(r io.Reader, url string) ([]Chunk, error) {
 	}
 
 	var chunks []Chunk
-	doc.Find("p, h1, h2, h3, h4, h5, h6").Each(func(i int, s *goquery.Selection) {
+	doc.Find("p, h1, h2, h3, h4, h5, h6, article.p").Each(func(_ int, s *goquery.Selection) {
 		text := strings.TrimSpace(s.Text())
 		if text != "" {
 			chunks = append(chunks, Chunk{Content: text, Source: url})
@@ -187,56 +184,41 @@ func processHTML(r io.Reader, url string) ([]Chunk, error) {
 }
 
 func processPDF(r io.Reader, url string) ([]Chunk, error) {
-	if key := os.Getenv("UNIDOC_LICENSE_KEY"); key != "" {
-		license.SetMeteredKey(key)
-	}
-
 	pdfData, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
 
-	pdfReader, err := model.NewPdfReader(bytes.NewReader(pdfData))
-	if err != nil {
-		return nil, err
-	}
-
-	numPages, err := pdfReader.GetNumPages()
+	f, err := pdf.NewReader(bytes.NewReader(pdfData), int64(len(pdfData)))
 	if err != nil {
 		return nil, err
 	}
 
 	var chunks []Chunk
-
-	for i := 0; i < numPages; i++ {
-		page, err := pdfReader.GetPage(i + 1)
+	for i := 1; i <= f.NumPage(); i++ {
+		p := f.Page(i)
+		if p.V.IsNull() {
+			continue
+		}
+		text, err := p.GetPlainText(nil)
 		if err != nil {
-			return nil, err
+			log.Printf("Error extracting text from page %d: %v\n\n", i, err)
+			continue
 		}
 
-		ex, err := extractor.New(page)
-		if err != nil {
-			return nil, err
-		}
+		text = strings.TrimSpace(text)
+		text = strings.ReplaceAll(text, "\n", "\n\n")
 
-		text, err := ex.ExtractText()
-		if err != nil {
-			return nil, err
-		}
-
-		// Split the text into paragraphs
-		paragraphs := strings.Split(text, "\n\n")
-		for _, paragraph := range paragraphs {
-			trimmed := strings.TrimSpace(paragraph)
-			if trimmed != "" {
-				chunks = append(chunks, Chunk{
-					Content: trimmed,
-					Source:  url + "#page=" + strconv.Itoa(i),
-				})
-			}
-		}
-
+		chunks = append(chunks, Chunk{
+			Content: text,
+			Source:  fmt.Sprintf("%s#page=%d", url, i),
+		})
 	}
+
+	if len(chunks) == 0 {
+		return nil, err
+	}
+
 	return chunks, nil
 }
 
