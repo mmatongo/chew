@@ -4,13 +4,7 @@
 [![GoDoc](https://godoc.org/github.com/mmatongo/chew?status.svg)](https://pkg.go.dev/github.com/mmatongo/chew)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-Chew is a Go library for processing various content types into markdown.
-
-## Features
-
-- Supports multiple content types: HTML, PDF, CSV, JSON, YAML, DOCX, and Markdown
-- Concurrent processing of multiple URLs
-- Context-aware
+Chew is a Go library for processing various content types into markdown/plaintext.
 
 ## Installation
 
@@ -71,6 +65,15 @@ Content: This domain is for use in illustrative examples in documents. You may u
 Source: https://example.com
 Content: More information...
 ```
+
+## Features
+
+- Supports multiple content types: HTML, PDF, CSV, JSON, YAML, DOCX, and Markdown
+- Concurrent processing of multiple URLs
+- Context-aware
+
+### Similar Projects
+[docconv](https://github.com/sajari/docconv)
 
 ### License
 [MIT](./LICENSE)

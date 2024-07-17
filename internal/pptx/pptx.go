@@ -1,4 +1,4 @@
-package docx
+package pptx
 
 import (
 	"archive/zip"
@@ -9,7 +9,7 @@ import (
 	"github.com/mmatongo/chew/internal/utils"
 )
 
-func ProcessDocx(r io.Reader) ([]string, error) {
+func ProcessPptx(r io.Reader) ([]string, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -23,12 +23,12 @@ func ProcessDocx(r io.Reader) ([]string, error) {
 	var contents []string
 
 	for _, file := range zipReader.File {
-		if file.Name == "word/document.xml" {
-			contents, err = utils.ExtractTextFromXML(file)
+		if strings.HasPrefix(file.Name, "ppt/slides/") {
+			slideText, err := utils.ExtractTextFromXML(file)
 			if err != nil {
 				return nil, err
 			}
-			break
+			contents = append(contents, slideText...)
 		}
 	}
 

@@ -1,4 +1,4 @@
-package docx
+package pptx
 
 import (
 	"archive/zip"
@@ -31,7 +31,7 @@ func createMultiParagraphDocx(paragraphs []string) io.Reader {
 func createDocxWithContent(content string) io.Reader {
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
-	f, _ := w.Create("word/document.xml")
+	f, _ := w.Create("ppt/slides/slide1.xml")
 	f.Write([]byte(content))
 	w.Close()
 	return bytes.NewReader(buf.Bytes())
@@ -89,7 +89,7 @@ func TestProcessDocx(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ProcessDocx(tt.input)
+			got, err := ProcessPptx(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ProcessDocx() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -158,6 +158,6 @@ func TestExtractTextFromXML_Error(t *testing.T) {
 }
 
 func TestProcessDocx_Error_ReadAll(t *testing.T) {
-	_, err := ProcessDocx(&errorReader{})
+	_, err := ProcessPptx(&errorReader{})
 	assert.NotNil(t, err, "ProcessDocx() did not return an error")
 }
