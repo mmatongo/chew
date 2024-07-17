@@ -3,6 +3,8 @@ package chew
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -10,14 +12,12 @@ import (
 	"strings"
 	"sync"
 
-	"encoding/csv"
-	"encoding/json"
-
 	"github.com/PuerkitoBio/goquery"
 	"github.com/ledongthuc/pdf"
 	"gopkg.in/yaml.v3"
 
 	"github.com/mmatongo/chew/internal/docx"
+	"github.com/mmatongo/chew/internal/pptx"
 	"github.com/mmatongo/chew/internal/utils"
 )
 
@@ -35,6 +35,7 @@ const (
 	contentTypeYAML     = "application/x-yaml"
 	contentTypeMarkdown = "text/markdown"
 	contentTypeDocx     = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+	contentTypePptx     = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 )
 
 var contentTypeProcessors = map[string]func(io.Reader, string) ([]Chunk, error){
@@ -46,6 +47,7 @@ var contentTypeProcessors = map[string]func(io.Reader, string) ([]Chunk, error){
 	contentTypeMarkdown: processText,
 	contentTypeDocx:     processDocx,
 	contentTypeText:     processText,
+	contentTypePptx:     processPptx,
 }
 
 /*
@@ -62,6 +64,10 @@ var validExtensions = map[string]func(io.Reader, string) ([]Chunk, error){
 	".html": processHTML,
 }
 
+/*
+For content types that can also return text/plain as their content types we need to manually check
+their extension to properly process them. I feel like this could be done better but this is my solution for now.
+*/
 func getProcessor(contentType, url string) (func(io.Reader, string) ([]Chunk, error), error) {
 	for key, proc := range contentTypeProcessors {
 		if strings.Contains(contentType, key) {
@@ -285,6 +291,22 @@ func processMarkdown(r io.Reader, url string) ([]Chunk, error) {
 
 func processDocx(r io.Reader, url string) ([]Chunk, error) {
 	content, err := docx.ProcessDocx(r)
+	if err != nil {
+		return nil, err
+	}
+
+	var chunks []Chunk
+	for _, chunk := range content {
+		if strings.TrimSpace(string(chunk)) != "" {
+			chunks = append(chunks, Chunk{Content: string(chunk), Source: url})
+		}
+	}
+
+	return chunks, nil
+}
+
+func processPptx(r io.Reader, url string) ([]Chunk, error) {
+	content, err := pptx.ProcessPptx(r)
 	if err != nil {
 		return nil, err
 	}
