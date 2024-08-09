@@ -68,7 +68,7 @@ Content: More information...
 
 ## Features
 
-- Supports multiple content types: HTML, PDF, CSV, JSON, YAML, DOCX, and Markdown
+- Supports multiple content types: HTML, PDF, CSV, JSON, YAML, DOCX, PPTX, Markdown, Plaintext, MP3, FLAC and WAVE
 - Concurrent processing of multiple URLs
 - Context-aware
 
