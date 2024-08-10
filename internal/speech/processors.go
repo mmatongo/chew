@@ -1,6 +1,7 @@
 package speech
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
