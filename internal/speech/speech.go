@@ -26,9 +26,10 @@ type TranscribeOptions struct {
 /*
 Transcribe uses the Google Cloud Speech-to-Text API to transcribe an audio file. It takes
 a context, the filename of the audio file to transcribe, and a TranscribeOptions struct which
-contains the Google Cloud credentials, the GCS bucket to upload the audio file to, and the language code
-to use for transcription. It returns the transcript of the audio file as a string and an error if the
-transcription fails.
+contains the Google Cloud credentials, the GCS bucket to upload the audio file to, the language code
+to use for transcription, an potion to enable diarization including the min and max speakers and
+an option to cleanup the audio file from GCS after transcription is complete.
+It returns the transcript of the audio file as a string and an error if the transcription fails.
 */
 
 func Transcribe(ctx context.Context, filename string, opts TranscribeOptions) (string, error) {
