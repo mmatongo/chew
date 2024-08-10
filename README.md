@@ -1,18 +1,29 @@
-# Chew
+<div align="center">
+<img
+    width=40%
+    src="assets/gopher-eating.svg"
+    alt="chew logo"
+/>
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/mmatongo/chew)](https://goreportcard.com/report/github.com/mmatongo/chew)
 [![GoDoc](https://godoc.org/github.com/mmatongo/chew?status.svg)](https://pkg.go.dev/github.com/mmatongo/chew)
+[![Maintainability](https://api.codeclimate.com/v1/badges/441cfd36f310c0c48878/maintainability)](https://codeclimate.com/github/mmatongo/chew/maintainability)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+</div>
 
-Chew is a Go library for processing various content types into markdown/plaintext.
+> <p align="center">A Go library for processing various content types into markdown/plaintext..</p>
 
-## Installation
+## About <a id="about"></a>
+
+*Chew* is a Go library that processes various content types into markdown or plaintext. It supports multiple content types, including HTML, PDF, CSV, JSON, YAML, DOCX, PPTX, Markdown, Plaintext, MP3, FLAC, and WAVE.
+
+## Installation <a id="installation"></a>
 
 ```bash
 go get github.com/mmatongo/chew
 ```
 
-## Usage
+## Usage <a id="usage"></a>
 
 Here's a basic example of how to use Chew:
 
@@ -53,7 +64,7 @@ func main() {
 }
 ```
 
-### Output
+Output
 
 ```bash
 Source: https://example.com
@@ -66,17 +77,21 @@ Source: https://example.com
 Content: More information...
 ```
 
-## Features
+## Contributing <a id="contributing"></a>
 
-- Supports multiple content types: HTML, PDF, CSV, JSON, YAML, DOCX, PPTX, Markdown, Plaintext, MP3, FLAC, and WAVE
-- Concurrent processing of multiple URLs or files
-- Context-aware
+Contributions are welcome! Feel free to open an issue or submit a pull request if you have any suggestions or improvements.
 
-### Similar Projects
+## License <a id="license"></a>
+
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+
+### Logo <a id="logo"></a>
+
+The [logo](https://github.com/MariaLetta/free-gophers-pack) was made by the amazing [MariaLetta](https://github.com/MariaLetta).
+
+
+### Similar Projects <a id="similar_projects"></a>
 [docconv](https://github.com/sajari/docconv)
 
-### License
-[MIT](./LICENSE)
-
-### Roadmap
-[TODO](./TODO.md)
+### Roadmap <a id="roadmap"></a>
+The roadmap for this project is available [here](./TODO.md). It's meant more as a guide than a strict plan because I only work on this project in my free time.
