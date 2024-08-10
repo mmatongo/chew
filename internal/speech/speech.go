@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"sync"
 
 	speech "cloud.google.com/go/speech/apiv1"
 	"cloud.google.com/go/speech/apiv1/speechpb"
@@ -31,8 +32,53 @@ to use for transcription, an potion to enable diarization including the min and 
 an option to cleanup the audio file from GCS after transcription is complete.
 It returns the transcript of the audio file as a string and an error if the transcription fails.
 */
+func Transcribe(ctx context.Context, filenames []string, opts TranscribeOptions) (map[string]string, error) {
+	var (
+		results = make(map[string]string)
+		wg      sync.WaitGroup
+		mu      sync.Mutex
+		errCh   = make(chan error, len(filenames))
+	)
 
-func Transcribe(ctx context.Context, filename string, opts TranscribeOptions) (string, error) {
+	for _, filename := range filenames {
+		wg.Add(1)
+		go func(filename string) {
+			defer wg.Done()
+			select {
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			default:
+				transcript, err := processFile(ctx, filename, opts)
+				if err != nil {
+					errCh <- fmt.Errorf("transcribing %s: %w", filename, err)
+					return
+				}
+				mu.Lock()
+				results[filename] = transcript
+				mu.Unlock()
+			}
+		}(filename)
+	}
+
+	go func() {
+		wg.Wait()
+		close(errCh)
+	}()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return nil, err
+		}
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
+	return results, nil
+}
+
+func processFile(ctx context.Context, filename string, opts TranscribeOptions) (string, error) {
 	var clientOpts []option.ClientOption
 	if opts.CredentialsJSON != nil {
 		clientOpts = append(clientOpts, option.WithCredentialsJSON(opts.CredentialsJSON))
