@@ -10,13 +10,7 @@ import (
 	"cloud.google.com/go/storage"
 )
 
-func uploadToGCS(ctx context.Context, bucket, filename string) (string, error) {
-	client, err := storage.NewClient(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to create storage client: %w", err)
-	}
-	defer client.Close()
-
+func uploadToGCS(ctx context.Context, client *storage.Client, bucket, filename string) (string, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %w", err)
@@ -33,4 +27,11 @@ func uploadToGCS(ctx context.Context, bucket, filename string) (string, error) {
 	}
 
 	return fmt.Sprintf("gs://%s/%s", bucket, objectName), nil
+}
+
+func deleteFromGCS(ctx context.Context, client *storage.Client, bucket, objectName string) error {
+	if err := client.Bucket(bucket).Object(objectName).Delete(ctx); err != nil {
+		return fmt.Errorf("failed to delete object from GCS: %w", err)
+	}
+	return nil
 }

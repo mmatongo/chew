@@ -3,9 +3,11 @@ package speech
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	speech "cloud.google.com/go/speech/apiv1"
 	"cloud.google.com/go/speech/apiv1/speechpb"
+	"cloud.google.com/go/storage"
 	"google.golang.org/api/option"
 )
 
@@ -16,6 +18,7 @@ type TranscribeOptions struct {
 	EnableDiarization bool
 	MinSpeakers       int
 	MaxSpeakers       int
+	CleanupOnComplete bool
 }
 
 // code is largely inspired by https://github.com/polyfact/polyfire-api
@@ -40,15 +43,31 @@ func Transcribe(ctx context.Context, filename string, opts TranscribeOptions) (s
 	}
 	defer client.Close()
 
+	storageClient, err := storage.NewClient(ctx, clientOpts...)
+	if err != nil {
+		return "", fmt.Errorf("failed to create storage client: %w", err)
+	}
+	defer storageClient.Close()
+
 	audioInfo, err := getAudioInfo(filename)
 	if err != nil {
 		return "", fmt.Errorf("failed to process audio file: %e", err)
 	}
 
-	gcsURI, err := uploadToGCS(ctx, opts.Bucket, filename)
+	gcsURI, err := uploadToGCS(ctx, storageClient, opts.Bucket, filename)
 	if err != nil {
 		return "", fmt.Errorf("failed to upload to GCS: %e", err)
 	}
+
+	defer func() {
+		if opts.CleanupOnComplete {
+			objectName := filepath.Base(filename)
+			err := deleteFromGCS(ctx, storageClient, opts.Bucket, objectName)
+			if err != nil {
+				fmt.Printf("failed to delete from GCS: %v\n", err)
+			}
+		}
+	}()
 
 	diarizationConfig := &speechpb.SpeakerDiarizationConfig{
 		EnableSpeakerDiarization: opts.EnableDiarization,
