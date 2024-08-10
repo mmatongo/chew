@@ -20,7 +20,7 @@ type audioInfo struct {
 }
 
 func getAudioInfo(filename string) (*audioInfo, error) {
-	ext := strings.ToLower((filepath.Ext(filename)))
+	ext := strings.ToLower(filepath.Ext(filename))
 
 	switch ext {
 	case ".mp3":
