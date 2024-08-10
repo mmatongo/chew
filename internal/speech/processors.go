@@ -50,14 +50,14 @@ func getEncoding(format string) speechpb.RecognitionConfig_AudioEncoding {
 func processMp3(filename string) (*audioInfo, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open MP3 file: %v", err)
+		return nil, fmt.Errorf("failed to open MP3 file: %w", err)
 	}
 
 	defer file.Close()
 
 	decoder, err := mp3.NewDecoder(file)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create MP3 decoder: %v", err)
+		return nil, fmt.Errorf("failed to create MP3 decoder: %w", err)
 	}
 
 	return &audioInfo{
@@ -71,7 +71,7 @@ func processMp3(filename string) (*audioInfo, error) {
 func processFlac(filename string) (*audioInfo, error) {
 	file, err := flac.Open(filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open FLAC file: %v", err)
+		return nil, fmt.Errorf("failed to open FLAC file: %w", err)
 	}
 	defer file.Close()
 
@@ -86,13 +86,13 @@ func processFlac(filename string) (*audioInfo, error) {
 func processWav(filename string) (*audioInfo, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open WAV file: %v", err)
+		return nil, fmt.Errorf("failed to open WAV file: %w", err)
 	}
 	defer file.Close()
 
 	decoder := wav.NewDecoder(file)
 	if !decoder.IsValidFile() {
-		return nil, fmt.Errorf("invalid WAV file")
+		return nil, errors.New("invalid WAV file")
 	}
 
 	return &audioInfo{
