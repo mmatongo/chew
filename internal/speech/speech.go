@@ -36,18 +36,18 @@ func Transcribe(ctx context.Context, filename string, opts TranscribeOptions) (s
 
 	client, err := speech.NewClient(ctx, clientOpts...)
 	if err != nil {
-		return "", fmt.Errorf("failed to create client: %v", err)
+		return "", fmt.Errorf("failed to create client: %w", err)
 	}
 	defer client.Close()
 
 	audioInfo, err := getAudioInfo(filename)
 	if err != nil {
-		return "", fmt.Errorf("failed to process audio file: %v", err)
+		return "", fmt.Errorf("failed to process audio file: %e", err)
 	}
 
 	gcsURI, err := uploadToGCS(ctx, opts.Bucket, filename)
 	if err != nil {
-		return "", fmt.Errorf("failed to upload to GCS: %v", err)
+		return "", fmt.Errorf("failed to upload to GCS: %e", err)
 	}
 
 	diarizationConfig := &speechpb.SpeakerDiarizationConfig{
@@ -77,12 +77,12 @@ func Transcribe(ctx context.Context, filename string, opts TranscribeOptions) (s
 
 	op, err := client.LongRunningRecognize(ctx, req)
 	if err != nil {
-		return "", fmt.Errorf("failed to start long running recognition: %v", err)
+		return "", fmt.Errorf("failed to start long running recognition: %w", err)
 	}
 
 	resp, err := op.Wait(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to get long running recognition results: %v", err)
+		return "", fmt.Errorf("failed to get long running recognition results: %w", err)
 	}
 
 	var transcript string
