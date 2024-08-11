@@ -77,6 +77,8 @@ Source: https://example.com
 Content: More information...
 ```
 
+You can find more examples in the [examples](./examples) directory as well as instructions on how to use Chew with Ruby and Python.
+
 ## Contributing <a id="contributing"></a>
 
 Contributions are welcome! Feel free to open an issue or submit a pull request if you have any suggestions or improvements.
