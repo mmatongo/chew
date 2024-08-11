@@ -18,6 +18,7 @@ import (
 
 	"github.com/mmatongo/chew/internal/docx"
 	"github.com/mmatongo/chew/internal/pptx"
+	"github.com/mmatongo/chew/internal/speech"
 	"github.com/mmatongo/chew/internal/utils"
 )
 
@@ -49,6 +50,17 @@ var contentTypeProcessors = map[string]func(io.Reader, string) ([]Chunk, error){
 	contentTypeText:     processText,
 	contentTypePptx:     processPptx,
 }
+
+/*
+Transcribe uses the Google Cloud Speech-to-Text API to transcribe an audio file. It takes
+a context, the filename of the audio file to transcribe, and a TranscribeOptions struct which
+contains the Google Cloud credentials, the GCS bucket to upload the audio file to, and the language code
+to use for transcription. It returns the transcript of the audio file as a string and an error if the
+transcription fails.
+*/
+var Transcribe = speech.Transcribe
+
+type TranscribeOptions = speech.TranscribeOptions
 
 /*
 This is meant as a fallback in case the content type is not recognized and to enforce
@@ -179,7 +191,15 @@ func processHTML(r io.Reader, url string) ([]Chunk, error) {
 	}
 
 	var chunks []Chunk
-	doc.Find("p, h1, h2, h3, h4, h5, h6").Each(func(_ int, s *goquery.Selection) {
+	/*
+		We're only interested in the text content of the HTML document
+		so we're going to ignore the tags that don't contain useful text.
+		This is a very naive approach and might not work for all HTML documents unfortunately
+	*/
+
+	doc.Find("nav, header, footer").Remove()
+
+	doc.Find("p, h1, h2, h3, h4, h5, h6, li").Each(func(_ int, s *goquery.Selection) {
 		text := strings.TrimSpace(s.Text())
 		if text != "" {
 			chunks = append(chunks, Chunk{Content: text, Source: url})
