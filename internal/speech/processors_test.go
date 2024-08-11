@@ -15,8 +15,17 @@ type mockProcessor struct {
 	err  error
 }
 
-func (m *mockProcessor) process(filename string) (*audioInfo, error) {
+func (m *mockProcessor) process(string) (*audioInfo, error) {
 	return m.info, m.err
+}
+
+type mockFactory struct {
+	processor audioProcessor
+	err       error
+}
+
+func (m *mockFactory) createProcessor(string) (audioProcessor, error) {
+	return m.processor, m.err
 }
 
 func getRootPath() string {
@@ -64,17 +73,17 @@ func Test_getEncoding(t *testing.T) {
 
 func Test_audioInfoRetriever_audioInfo(t *testing.T) {
 	tests := []struct {
-		name       string
-		processors map[string]audioProcessor
-		filename   string
-		want       *audioInfo
-		wantErr    bool
-		errMsg     string
+		name     string
+		factory  audioProcessorFactory
+		filename string
+		want     *audioInfo
+		wantErr  bool
+		errMsg   string
 	}{
 		{
 			name: "MP3 file - successful processing",
-			processors: map[string]audioProcessor{
-				".mp3": &mockProcessor{
+			factory: &mockFactory{
+				processor: &mockProcessor{
 					info: &audioInfo{
 						sampleRate:  44100,
 						numChannels: 2,
@@ -82,6 +91,7 @@ func Test_audioInfoRetriever_audioInfo(t *testing.T) {
 					},
 					err: nil,
 				},
+				err: nil,
 			},
 			filename: "test.mp3",
 			want: &audioInfo{
@@ -93,8 +103,8 @@ func Test_audioInfoRetriever_audioInfo(t *testing.T) {
 		},
 		{
 			name: "FLAC file - successful processing",
-			processors: map[string]audioProcessor{
-				".flac": &mockProcessor{
+			factory: &mockFactory{
+				processor: &mockProcessor{
 					info: &audioInfo{
 						sampleRate:  96000,
 						numChannels: 2,
@@ -102,6 +112,7 @@ func Test_audioInfoRetriever_audioInfo(t *testing.T) {
 					},
 					err: nil,
 				},
+				err: nil,
 			},
 			filename: "test.flac",
 			want: &audioInfo{
@@ -113,11 +124,12 @@ func Test_audioInfoRetriever_audioInfo(t *testing.T) {
 		},
 		{
 			name: "WAV file - processing error",
-			processors: map[string]audioProcessor{
-				".wav": &mockProcessor{
+			factory: &mockFactory{
+				processor: &mockProcessor{
 					info: nil,
 					err:  errors.New("failed to process WAV file"),
 				},
+				err: nil,
 			},
 			filename: "test.wav",
 			want:     nil,
@@ -126,10 +138,9 @@ func Test_audioInfoRetriever_audioInfo(t *testing.T) {
 		},
 		{
 			name: "Unsupported file format",
-			processors: map[string]audioProcessor{
-				".mp3":  &mockProcessor{},
-				".flac": &mockProcessor{},
-				".wav":  &mockProcessor{},
+			factory: &mockFactory{
+				processor: nil,
+				err:       errors.New("unsupported file format: .aac"),
 			},
 			filename: "test.aac",
 			want:     nil,
@@ -140,9 +151,7 @@ func Test_audioInfoRetriever_audioInfo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &audioInfoRetriever{
-				processors: tt.processors,
-			}
+			r := newAudioInfoRetriever(tt.factory)
 			got, err := r.audioInfo(tt.filename)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("audioInfoRetriever.audioInfo() error = %v, wantErr %v", err, tt.wantErr)
@@ -159,6 +168,7 @@ func Test_audioInfoRetriever_audioInfo(t *testing.T) {
 }
 
 func Test_newAudioInfoRetriever(t *testing.T) {
+	factory := &defaultAudioProcessorFactory{}
 	tests := []struct {
 		name string
 		want *audioInfoRetriever
@@ -166,17 +176,13 @@ func Test_newAudioInfoRetriever(t *testing.T) {
 		{
 			name: "Create new audioInfoRetriever",
 			want: &audioInfoRetriever{
-				processors: map[string]audioProcessor{
-					".mp3":  &mp3Processor{},
-					".flac": &flacProcessor{},
-					".wav":  &wavProcessor{},
-				},
+				factory: factory,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := newAudioInfoRetriever(); !reflect.DeepEqual(got, tt.want) {
+			if got := newAudioInfoRetriever(factory); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("newAudioInfoRetriever() = %v, want %v", got, tt.want)
 			}
 		})
