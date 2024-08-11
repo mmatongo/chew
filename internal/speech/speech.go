@@ -28,8 +28,8 @@ type TranscribeOptions struct {
 Transcribe uses the Google Cloud Speech-to-Text API to transcribe an audio file. It takes
 a context, the filename of the audio file to transcribe, and a TranscribeOptions struct which
 contains the Google Cloud credentials, the GCS bucket to upload the audio file to, the language code
-to use for transcription, an potion to enable diarization including the min and max speakers and
-an option to cleanup the audio file from GCS after transcription is complete.
+to use for transcription, a potion to enable diarization including the min and max speakers and
+an option to clean up the audio file from GCS after transcription is complete.
 It returns the transcript of the audio file as a string and an error if the transcription fails.
 */
 func Transcribe(ctx context.Context, filenames []string, opts TranscribeOptions) (map[string]string, error) {
@@ -88,13 +88,23 @@ func processFile(ctx context.Context, filename string, opts TranscribeOptions) (
 	if err != nil {
 		return "", fmt.Errorf("failed to create client: %w", err)
 	}
-	defer client.Close()
+	defer func(client *speech.Client) {
+		err := client.Close()
+		if err != nil {
+			fmt.Printf("failed to close client: %v\n", err)
+		}
+	}(client)
 
 	storageClient, err := storage.NewClient(ctx, clientOpts...)
 	if err != nil {
 		return "", fmt.Errorf("failed to create storage client: %w", err)
 	}
-	defer storageClient.Close()
+	defer func(storageClient *storage.Client) {
+		err := storageClient.Close()
+		if err != nil {
+			fmt.Printf("failed to close storage client: %v\n", err)
+		}
+	}(storageClient)
 
 	audioInfo, err := getAudioInfo(filename)
 	if err != nil {
@@ -124,9 +134,9 @@ func processFile(ctx context.Context, filename string, opts TranscribeOptions) (
 
 	req := &speechpb.LongRunningRecognizeRequest{
 		Config: &speechpb.RecognitionConfig{
-			Encoding:                   getEncoding(audioInfo.format),
-			SampleRateHertz:            int32(audioInfo.sampleRate),
-			AudioChannelCount:          int32(audioInfo.numChannels),
+			Encoding:                   audioInfo.Encoding,
+			SampleRateHertz:            audioInfo.SampleRateHertz,
+			AudioChannelCount:          int32(audioInfo.AudioChannelCount),
 			LanguageCode:               opts.LanguageCode,
 			EnableAutomaticPunctuation: true,
 			UseEnhanced:                true,
