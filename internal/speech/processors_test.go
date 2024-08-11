@@ -1,11 +1,29 @@
 package speech
 
 import (
+	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
 	"cloud.google.com/go/speech/apiv1/speechpb"
 )
+
+type mockProcessor struct {
+	info *audioInfo
+	err  error
+}
+
+func (m *mockProcessor) process(filename string) (*audioInfo, error) {
+	return m.info, m.err
+}
+
+func getRootPath() string {
+	pwd, _ := os.Getwd()
+	pwd = filepath.Dir(filepath.Dir(pwd))
+	return pwd
+}
 
 func Test_getEncoding(t *testing.T) {
 	tests := []struct {
@@ -39,6 +57,196 @@ func Test_getEncoding(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getEncoding(tt.format); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("getEncoding() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_audioInfoRetriever_audioInfo(t *testing.T) {
+	tests := []struct {
+		name       string
+		processors map[string]audioProcessor
+		filename   string
+		want       *audioInfo
+		wantErr    bool
+		errMsg     string
+	}{
+		{
+			name: "MP3 file - successful processing",
+			processors: map[string]audioProcessor{
+				".mp3": &mockProcessor{
+					info: &audioInfo{
+						sampleRate:  44100,
+						numChannels: 2,
+						format:      "MP3",
+					},
+					err: nil,
+				},
+			},
+			filename: "test.mp3",
+			want: &audioInfo{
+				sampleRate:  44100,
+				numChannels: 2,
+				format:      "MP3",
+			},
+			wantErr: false,
+		},
+		{
+			name: "FLAC file - successful processing",
+			processors: map[string]audioProcessor{
+				".flac": &mockProcessor{
+					info: &audioInfo{
+						sampleRate:  96000,
+						numChannels: 2,
+						format:      "FLAC",
+					},
+					err: nil,
+				},
+			},
+			filename: "test.flac",
+			want: &audioInfo{
+				sampleRate:  96000,
+				numChannels: 2,
+				format:      "FLAC",
+			},
+			wantErr: false,
+		},
+		{
+			name: "WAV file - processing error",
+			processors: map[string]audioProcessor{
+				".wav": &mockProcessor{
+					info: nil,
+					err:  errors.New("failed to process WAV file"),
+				},
+			},
+			filename: "test.wav",
+			want:     nil,
+			wantErr:  true,
+			errMsg:   "failed to process WAV file",
+		},
+		{
+			name: "Unsupported file format",
+			processors: map[string]audioProcessor{
+				".mp3":  &mockProcessor{},
+				".flac": &mockProcessor{},
+				".wav":  &mockProcessor{},
+			},
+			filename: "test.aac",
+			want:     nil,
+			wantErr:  true,
+			errMsg:   "unsupported file format: .aac",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &audioInfoRetriever{
+				processors: tt.processors,
+			}
+			got, err := r.audioInfo(tt.filename)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("audioInfoRetriever.audioInfo() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && err.Error() != tt.errMsg {
+				t.Errorf("audioInfoRetriever.audioInfo() error = %v, expected error %v", err, tt.errMsg)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("audioInfoRetriever.audioInfo() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_newAudioInfoRetriever(t *testing.T) {
+	tests := []struct {
+		name string
+		want *audioInfoRetriever
+	}{
+		{
+			name: "Create new audioInfoRetriever",
+			want: &audioInfoRetriever{
+				processors: map[string]audioProcessor{
+					".mp3":  &mp3Processor{},
+					".flac": &flacProcessor{},
+					".wav":  &wavProcessor{},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := newAudioInfoRetriever(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("newAudioInfoRetriever() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getAudioInfo(t *testing.T) {
+	type args struct {
+		filename string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *speechpb.RecognitionConfig
+		wantErr bool
+	}{
+		{
+			name: "MP3 file",
+			args: args{
+				filename: getRootPath() + "/testdata/audio/test.mp3",
+			},
+			want: &speechpb.RecognitionConfig{
+				Encoding:          speechpb.RecognitionConfig_MP3,
+				SampleRateHertz:   44100,
+				AudioChannelCount: 2,
+			},
+			wantErr: false,
+		},
+		{
+			name: "FLAC file",
+			args: args{
+				filename: getRootPath() + "/testdata/audio/test.flac",
+			},
+			want: &speechpb.RecognitionConfig{
+				Encoding:          speechpb.RecognitionConfig_FLAC,
+				SampleRateHertz:   96000,
+				AudioChannelCount: 2,
+			},
+			wantErr: false,
+		},
+		{
+			name: "WAV file",
+			args: args{
+				filename: getRootPath() + "/testdata/audio/test.wav",
+			},
+			want: &speechpb.RecognitionConfig{
+				Encoding:          speechpb.RecognitionConfig_LINEAR16,
+				SampleRateHertz:   44100,
+				AudioChannelCount: 2,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Unsupported file format",
+			args: args{
+				filename: getRootPath() + "/testdata/audio/test.ogg",
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := getAudioInfo(tt.args.filename)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getAudioInfo() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getAudioInfo() = %v, want %v", got, tt.want)
 			}
 		})
 	}
