@@ -1,8 +1,11 @@
 package chew
 
 import (
+	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/jung-kurt/gofpdf"
 )
 
 // type failReader struct{}
@@ -109,5 +112,65 @@ func BenchmarkProcessHTML(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		reader := strings.NewReader(htmlContent)
 		processHTML(reader, "sample.html")
+	}
+}
+
+func TestProcessPDF(t *testing.T) {
+	// Sample PDF content in bytes
+	pdfContent := generateSamplePDF() // Assume this function returns []byte of a simple PDF
+
+	// Create an io.Reader from the PDF content
+	reader := bytes.NewReader(pdfContent)
+
+	// Expected output
+	expectedChunks := []Chunk{
+		{Content: "Chew is a Go library that processes various content types into markdown or plaintext. It supports multiple content types, including HTML, PDF, CSV, JSON, YAML, DOCX, PPTX, Markdown, Plaintext, MP3, FLAC, and WAVE.", Source: "sample.pdf#page=1"},
+	}
+
+	// Call the processPDF function
+	chunks, err := processPDF(reader, "sample.pdf")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Check the number of chunks
+	if len(chunks) != len(expectedChunks) {
+		t.Fatalf("expected %d chunks, got %d", len(expectedChunks), len(chunks))
+	}
+
+	// Check the content of each chunk
+	for i, chunk := range chunks {
+		if chunk != expectedChunks[i] {
+			t.Errorf("expected chunk %v, got %v", expectedChunks[i], chunk)
+		}
+	}
+}
+
+// generateSamplePDF creates a simple PDF document and returns the content as a []byte.
+func generateSamplePDF() []byte {
+	var buf bytes.Buffer
+
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.AddPage()
+	pdf.SetFont("Arial", "B", 16)
+	pdf.Cell(40, 10, "Chew is a Go library that processes various content types into markdown or plaintext. It supports multiple content types, including HTML, PDF, CSV, JSON, YAML, DOCX, PPTX, Markdown, Plaintext, MP3, FLAC, and WAVE.")
+
+	// Write PDF content to the buffer
+	err := pdf.Output(&buf)
+	if err != nil {
+		// Handle error (e.g., log or return an empty byte slice)
+		return nil
+	}
+
+	return buf.Bytes()
+}
+
+func TestProcessPDF_Error(t *testing.T) {
+	// Create an invalid PDF content (e.g., empty content)
+	reader := bytes.NewReader([]byte{})
+
+	_, err := processPDF(reader, "sample.pdf")
+	if err == nil {
+		t.Fatalf("expected an error, got none")
 	}
 }
