@@ -2,6 +2,7 @@ package chew
 
 import (
 	"bytes"
+	"log"
 	"strings"
 	"testing"
 
@@ -114,7 +115,6 @@ func BenchmarkProcessHTML(b *testing.B) {
 		processHTML(reader, "sample.html")
 	}
 }
-
 func TestProcessPDF(t *testing.T) {
 	// Sample PDF content in bytes
 	pdfContent := generateSamplePDF() // Assume this function returns []byte of a simple PDF
@@ -124,7 +124,7 @@ func TestProcessPDF(t *testing.T) {
 
 	// Expected output
 	expectedChunks := []Chunk{
-		{Content: "Chew is a Go library that processes various content types into markdown or plaintext. It supports multiple content types, including HTML, PDF, CSV, JSON, YAML, DOCX, PPTX, Markdown, Plaintext, MP3, FLAC, and WAVE.", Source: "sample.pdf#page=1"},
+		{Content: "Chew is a Go library that processes various content types into markdown or plaintext.\nIt supports multiple content types, including HTML, PDF, CSV, JSON, YAML, DOCX, PPTX, Markdown, Plaintext, MP3, FLAC, and WAVE.", Source: "sample.pdf#page=1"},
 	}
 
 	// Call the processPDF function
@@ -146,20 +146,19 @@ func TestProcessPDF(t *testing.T) {
 	}
 }
 
-// generateSamplePDF creates a simple PDF document and returns the content as a []byte.
+// Helper function to generate a sample PDF
 func generateSamplePDF() []byte {
 	var buf bytes.Buffer
 
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.AddPage()
 	pdf.SetFont("Arial", "B", 16)
-	pdf.Cell(40, 10, "Chew is a Go library that processes various content types into markdown or plaintext. It supports multiple content types, including HTML, PDF, CSV, JSON, YAML, DOCX, PPTX, Markdown, Plaintext, MP3, FLAC, and WAVE.")
+	pdf.MultiCell(0, 10, "Chew is a Go library that processes various content types into markdown or plaintext.\n\nIt supports multiple content types, including HTML, PDF, CSV, JSON, YAML, DOCX, PPTX, Markdown, Plaintext, MP3, FLAC, and WAVE.", "", "C", false)
 
 	// Write PDF content to the buffer
 	err := pdf.Output(&buf)
 	if err != nil {
-		// Handle error (e.g., log or return an empty byte slice)
-		return nil
+		log.Fatalf("Failed to generate PDF: %v", err)
 	}
 
 	return buf.Bytes()
@@ -172,5 +171,40 @@ func TestProcessPDF_Error(t *testing.T) {
 	_, err := processPDF(reader, "sample.pdf")
 	if err == nil {
 		t.Fatalf("expected an error, got none")
+	}
+}
+
+func TestProcessCSV(t *testing.T) {
+	// Define the test input (CSV data) and expected output
+	csvData := `Name, Age, Location
+John Doe, 30, New York
+Jane Smith, 25, Los Angeles`
+	expectedChunks := []Chunk{
+		{Content: "Name, Age, Location", Source: "test.csv"},
+		{Content: "John Doe, 30, New York", Source: "test.csv"},
+		{Content: "Jane Smith, 25, Los Angeles", Source: "test.csv"},
+	}
+
+	// Create a reader from the CSV data
+	reader := strings.NewReader(csvData)
+
+	// Call the processCSV function
+	chunks, err := processCSV(reader, "test.csv")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Compare the actual output with the expected output
+	if len(chunks) != len(expectedChunks) {
+		t.Fatalf("expected %d chunks, got %d", len(expectedChunks), len(chunks))
+	}
+
+	for i, chunk := range chunks {
+		if chunk.Content != expectedChunks[i].Content {
+			t.Errorf("expected chunk content %q, got %q", expectedChunks[i].Content, chunk.Content)
+		}
+		if chunk.Source != expectedChunks[i].Source {
+			t.Errorf("expected chunk source %q, got %q", expectedChunks[i].Source, chunk.Source)
+		}
 	}
 }
