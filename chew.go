@@ -18,7 +18,7 @@ import (
 
 	"github.com/mmatongo/chew/internal/docx"
 	"github.com/mmatongo/chew/internal/pptx"
-	"github.com/mmatongo/chew/internal/speech"
+	"github.com/mmatongo/chew/internal/transcribe"
 	"github.com/mmatongo/chew/internal/utils"
 )
 
@@ -58,9 +58,9 @@ contains the Google Cloud credentials, the GCS bucket to upload the audio file t
 to use for transcription. It returns the transcript of the audio file as a string and an error if the
 transcription fails.
 */
-var Transcribe = speech.Transcribe
+var Transcribe = transcribe.Transcribe
 
-type TranscribeOptions = speech.TranscribeOptions
+type TranscribeOptions = transcribe.TranscribeOptions
 
 /*
 This is meant as a fallback in case the content type is not recognized and to enforce
