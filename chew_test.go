@@ -2,6 +2,7 @@ package chew
 
 import (
 	"bytes"
+	"encoding/json"
 	"log"
 	"strings"
 	"testing"
@@ -207,4 +208,59 @@ Jane Smith, 25, Los Angeles`
 			t.Errorf("expected chunk source %q, got %q", expectedChunks[i].Source, chunk.Source)
 		}
 	}
+}
+
+func TestProcessJSON(t *testing.T) {
+	jsonData := `{
+		"name": "John Doe",
+		"age": 30,
+		"location": "New York"
+	}`
+
+	expectedData := map[string]interface{}{
+		"name":     "John Doe",
+		"age":      float64(30),
+		"location": "New York",
+	}
+
+	// Create a reader from the JSON data
+	reader := strings.NewReader(jsonData)
+
+	// Call the processJSON function
+	chunks, err := processJSON(reader, "test.json")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// The order of a JSON object is not guaranteed in Go
+	// so it is safe to decode it into a map and compare
+	// the expected map with the resulting map)
+	var resultData map[string]interface{}
+	if err := json.Unmarshal([]byte(chunks[0].Content), &resultData); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+
+	if len(chunks) != 1 {
+		t.Fatalf("expected 1 chunk, got %d", len(chunks))
+	}
+
+	if !equalMaps(resultData, expectedData) {
+		t.Errorf("expected chunk content %v, got %v", expectedData, resultData)
+	}
+
+	if chunks[0].Source != "test.json" {
+		t.Errorf("expected chunk source %q, got %q", "test.json", chunks[0].Source)
+	}
+}
+
+func equalMaps(a, b map[string]interface{}) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if vb, ok := b[k]; !ok || vb != v {
+			return false
+		}
+	}
+	return true
 }
