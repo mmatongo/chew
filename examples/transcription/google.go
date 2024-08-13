@@ -32,7 +32,7 @@ func main() {
 		Transcriptions can take a bit of time so ensure that the timeout you set
 		is enough for the process to finish
 
-		In a test with MLK Jr's speech it took about 3min to complete
+		In a test with MLK Jr's transcribe it took about 3min to complete
 
 		The two audio files used in this example can be obtained from the following links:
 		- Conference.wav: https://storage.googleapis.com/chew-go/audio/Conference.wav
