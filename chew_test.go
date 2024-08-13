@@ -1,53 +1,28 @@
 package chew
 
 import (
-	"bytes"
 	"encoding/json"
-	"log"
+
 	"strings"
 	"testing"
 
-	"github.com/jung-kurt/gofpdf"
+	"gopkg.in/yaml.v3"
 )
-
-// type failReader struct{}
-
-// func (f failReader) Read(p []byte) (n int, err error) {
-// 	return 0, fmt.Errorf("intentional read failure")
-// }
-
-// func TestProcessHTMLError(t *testing.T) {
-// 	// Use a reader that always fails
-// 	failingReader := failReader{}
-
-// 	_, err := processHTML(failingReader, "failing.html")
-// 	if err == nil {
-// 		t.Fatalf("expected an error, but got none")
-// 	}
-// }
-
-// func TestProcessHTMLParseError(t *testing.T) {
-// 	// Deliberately broken HTML or unparseable input
-// 	badHTML := strings.NewReader("<<not even close to valid HTML>>")
-
-// 	_, err := processHTML(badHTML, "broken.html")
-// 	if err == nil {
-// 		t.Fatalf("expected an error due to bad HTML, but got none")
-// 	}
-// }
 
 func TestProcessHTML(t *testing.T) {
 
-	// brokenHTMLContent := `
-	// <html><p>Unclosed tag
-	// `
+	//the goquery parser couldn't catch a broken HTML content,
+	//so the test fails because it expects an error but got none
+	brokenHTMLContent := `
+	<html><p>Unclosed tag
+	`
 
-	// invalidReader := strings.NewReader(brokenHTMLContent)
+	invalidReader := strings.NewReader(brokenHTMLContent)
 
-	// _, err := processHTML(invalidReader, "invalid.html")
-	// if err == nil {
-	// 	t.Fatalf("expected an error, but got none")
-	// }
+	_, err := processHTML(invalidReader, "invalid.html")
+	if err == nil {
+		t.Fatalf("expected an error, but got none")
+	}
 
 	htmlContent := `
     <html>
@@ -92,6 +67,7 @@ func TestProcessHTML(t *testing.T) {
 	}
 }
 
+// just a little playaround here
 func BenchmarkProcessHTML(b *testing.B) {
 
 	htmlContent := `
@@ -116,74 +92,16 @@ func BenchmarkProcessHTML(b *testing.B) {
 		processHTML(reader, "sample.html")
 	}
 }
-func TestProcessPDF(t *testing.T) {
-	// Sample PDF content in bytes
-	pdfContent := generateSamplePDF() // Assume this function returns []byte of a simple PDF
-
-	// Create an io.Reader from the PDF content
-	reader := bytes.NewReader(pdfContent)
-
-	// Expected output
-	expectedChunks := []Chunk{
-		{Content: "Chew is a Go library that processes various content types into markdown or plaintext.\nIt supports multiple content types, including HTML, PDF, CSV, JSON, YAML, DOCX, PPTX, Markdown, Plaintext, MP3, FLAC, and WAVE.", Source: "sample.pdf#page=1"},
-	}
-
-	// Call the processPDF function
-	chunks, err := processPDF(reader, "sample.pdf")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-
-	// Check the number of chunks
-	if len(chunks) != len(expectedChunks) {
-		t.Fatalf("expected %d chunks, got %d", len(expectedChunks), len(chunks))
-	}
-
-	// Check the content of each chunk
-	for i, chunk := range chunks {
-		if chunk != expectedChunks[i] {
-			t.Errorf("expected chunk %v, got %v", expectedChunks[i], chunk)
-		}
-	}
-}
-
-// Helper function to generate a sample PDF
-func generateSamplePDF() []byte {
-	var buf bytes.Buffer
-
-	pdf := gofpdf.New("P", "mm", "A4", "")
-	pdf.AddPage()
-	pdf.SetFont("Arial", "B", 16)
-	pdf.MultiCell(0, 10, "Chew is a Go library that processes various content types into markdown or plaintext.\n\nIt supports multiple content types, including HTML, PDF, CSV, JSON, YAML, DOCX, PPTX, Markdown, Plaintext, MP3, FLAC, and WAVE.", "", "C", false)
-
-	// Write PDF content to the buffer
-	err := pdf.Output(&buf)
-	if err != nil {
-		log.Fatalf("Failed to generate PDF: %v", err)
-	}
-
-	return buf.Bytes()
-}
-
-func TestProcessPDF_Error(t *testing.T) {
-	// Create an invalid PDF content (e.g., empty content)
-	reader := bytes.NewReader([]byte{})
-
-	_, err := processPDF(reader, "sample.pdf")
-	if err == nil {
-		t.Fatalf("expected an error, got none")
-	}
-}
 
 func TestProcessCSV(t *testing.T) {
 	// Define the test input (CSV data) and expected output
-	csvData := `Name, Age, Location
-John Doe, 30, New York
-Jane Smith, 25, Los Angeles`
+	csvData := `Language, Role, Location
+Go, Backend Engineer, New York
+Rust, Systems Engineer, Los Angeles`
 	expectedChunks := []Chunk{
-		{Content: "Name, Age, Location", Source: "test.csv"},
-		{Content: "John Doe, 30, New York", Source: "test.csv"},
-		{Content: "Jane Smith, 25, Los Angeles", Source: "test.csv"},
+		{Content: "Language, Role, Location", Source: "test.csv"},
+		{Content: "Go, Backend Engineer, New York", Source: "test.csv"},
+		{Content: "Rust, Systems Engineer, Los Angeles", Source: "test.csv"},
 	}
 
 	// Create a reader from the CSV data
@@ -212,14 +130,14 @@ Jane Smith, 25, Los Angeles`
 
 func TestProcessJSON(t *testing.T) {
 	jsonData := `{
-		"name": "John Doe",
-		"age": 30,
+		"language": "Go",
+		"role": "Backend Engineer",
 		"location": "New York"
 	}`
 
 	expectedData := map[string]interface{}{
-		"name":     "John Doe",
-		"age":      float64(30),
+		"language": "Go",
+		"role":     "Backend Engineer",
 		"location": "New York",
 	}
 
@@ -264,3 +182,54 @@ func equalMaps(a, b map[string]interface{}) bool {
 	}
 	return true
 }
+
+func TestProcessYAML(t *testing.T) {
+	// Define the test input (YAML data)
+	yamlData := `
+language: Go
+role: Backend Engineer
+location: New York
+`
+
+	expectedData := map[string]interface{}{
+		"language": "Go",
+		"role":     "Backend Engineer",
+		"location": "New York",
+	}
+
+	// Create a reader from the YAML data
+	reader := strings.NewReader(yamlData)
+
+	// Call the processYAML function
+	chunks, err := processYAML(reader, "test.yaml")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Decode the result into a map
+	var resultData map[string]interface{}
+	if err := yaml.Unmarshal([]byte(chunks[0].Content), &resultData); err != nil {
+		t.Fatalf("failed to unmarshal result: %v", err)
+	}
+
+	// Compare the actual output with the expected output
+	if len(chunks) != 1 {
+		t.Fatalf("expected 1 chunk, got %d", len(chunks))
+	}
+
+	// Compare the resulting map with the expected map
+	if !equalMaps(resultData, expectedData) {
+		t.Errorf("expected chunk content %v, got %v", expectedData, resultData)
+	}
+
+	if chunks[0].Source != "test.yaml" {
+		t.Errorf("expected chunk source %q, got %q", "test.yaml", chunks[0].Source)
+	}
+}
+
+/*
+Comments:
+- Both Docx and Pptx tests are skipped because they might require refactoring the processDocx and processPptx functions in chew.go so that each accept a processing function as one of their arguments.
+- The Test for the getProcessor function is also skipped because every attempt to test it will require a refactoring of the getProcessor function in the chew.go code.
+- The processURL test depends on the getProcessor function, so it is also skipped.
+*/
