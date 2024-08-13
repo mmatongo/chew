@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"regexp"
 	"strings"
 	"sync"
 
@@ -210,18 +209,6 @@ func processHTML(r io.Reader, url string) ([]Chunk, error) {
 	return chunks, nil
 }
 
-func addMissingSpaces(text string) string {
-	// Insert space after a period if it is followed directly by a letter or number
-	re := regexp.MustCompile(`([.?!])([A-Za-z0-9])`)
-	text = re.ReplaceAllString(text, "$1 $2")
-
-	// Insert space after a comma if it is followed directly by a letter or number
-	re = regexp.MustCompile(`(,)([A-Za-z0-9])`)
-	text = re.ReplaceAllString(text, "$1 $2")
-
-	return text
-}
-
 func processPDF(r io.Reader, url string) ([]Chunk, error) {
 	pdfData, err := io.ReadAll(r)
 	if err != nil {
@@ -247,8 +234,6 @@ func processPDF(r io.Reader, url string) ([]Chunk, error) {
 
 		text = strings.TrimSpace(text)
 		text = strings.ReplaceAll(text, "\n", "\n\n")
-
-		text = addMissingSpaces(text)
 
 		chunks = append(chunks, Chunk{
 			Content: text,
