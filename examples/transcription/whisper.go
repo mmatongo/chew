@@ -26,7 +26,7 @@ func main() {
 		The whisper model is a bit faster than the google cloud speech-to-text api
 		so the timeout can be set to a lower value.
 
-		In a test with MLK Jr's transcribe it took about 32s to complete
+		In a test with MLK Jr's speech it took about 32s to complete
 
 		The two audio files used in this example can be obtained from the following links:
 		- Conference.wav: https://storage.googleapis.com/chew-go/audio/Conference.wav
