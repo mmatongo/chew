@@ -1,11 +1,12 @@
 package transcribe
 
 import (
-	speech "cloud.google.com/go/speech/apiv1"
-	"cloud.google.com/go/storage"
 	"context"
 	"fmt"
 	"path/filepath"
+
+	speech "cloud.google.com/go/speech/apiv1"
+	"cloud.google.com/go/storage"
 )
 
 type googleTranscriber struct{}
