@@ -1,4 +1,4 @@
-package speech
+package transcribe
 
 import (
 	"errors"

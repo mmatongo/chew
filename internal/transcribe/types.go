@@ -1,4 +1,6 @@
-package speech
+package transcribe
+
+import "context"
 
 type audioInfo struct {
 	sampleRate  int
@@ -12,6 +14,10 @@ type audioProcessor interface {
 
 type audioProcessorFactory interface {
 	createProcessor(fileExtension string) (audioProcessor, error)
+}
+
+type transcriber interface {
+	process(ctx context.Context, filename string, opts TranscribeOptions) (string, error)
 }
 
 type defaultAudioProcessorFactory struct{}
