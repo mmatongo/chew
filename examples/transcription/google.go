@@ -37,8 +37,8 @@ func main() {
 		In a test with MLK Jr's speech it took about 3min to complete
 
 		The two audio files used in this example can be obtained from the following links:
-		- Conference.wav: https://storage.googleapis.com/chew-go/audio/Conference.wav
-		- MLKDream_64kb.mp3: https://voiceage.com/wbsamples/in_stereo/Conference.wav
+		- Conference.wav: https://voiceage.com/wbsamples/in_stereo/Conference.wav
+		- MLKDream_64kb.mp3: https://archive.org/details/MLKDream
 	*/
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
