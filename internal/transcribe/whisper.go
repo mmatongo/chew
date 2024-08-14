@@ -14,7 +14,15 @@ import (
 
 type whisperTranscriber struct{}
 
-func processWhisper(ctx context.Context, filename string, opts TranscribeOptions) (string, error) {
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+func processWhisper(ctx context.Context, filename string, opts TranscribeOptions, client httpClient) (string, error) {
+	if client == nil {
+		client = &http.Client{}
+	}
+
 	file, err := os.Open(filename)
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %w", err)
@@ -70,7 +78,6 @@ func processWhisper(ctx context.Context, filename string, opts TranscribeOptions
 	req.Header.Set("Authorization", "Bearer "+opts.WhisperAPIKey)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to send request: %w", err)
@@ -99,5 +106,5 @@ func processWhisper(ctx context.Context, filename string, opts TranscribeOptions
 }
 
 func (wt *whisperTranscriber) process(ctx context.Context, filename string, opts TranscribeOptions) (string, error) {
-	return processWhisper(ctx, filename, opts)
+	return processWhisper(ctx, filename, opts, nil)
 }
