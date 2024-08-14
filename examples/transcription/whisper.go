@@ -12,9 +12,9 @@ import (
 )
 
 func main() {
-	key := os.Getenv("OPEN_AI_API_KEY")
+	key := os.Getenv("OPENAI_API_KEY")
 	if key == "" {
-		log.Fatalf("Please set the OPEN_AI_API_KEY environment variable")
+		log.Fatalf("Please set the OPENAI_API_KEY= environment variable")
 	}
 
 	whisperOpts := chew.TranscribeOptions{
