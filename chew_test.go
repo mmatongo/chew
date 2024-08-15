@@ -10,6 +10,8 @@ import (
 
 func TestProcessHTML(t *testing.T) {
 
+t.Run("broken HTML", func(t *testing.T) {
+
 	//the goquery parser couldn't catch a broken HTML content,
 	//so the test fails because it expects an error but got none
 	brokenHTMLContent := `
