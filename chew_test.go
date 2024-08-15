@@ -27,6 +27,7 @@ func TestProcessHTML(t *testing.T) {
 		}
 	})
 
+t.Run("valid HTML", func(t *testing.T) {
 	htmlContent := `
     <html>
         <body>
@@ -68,6 +69,7 @@ func TestProcessHTML(t *testing.T) {
 			t.Errorf("at index %d: expected %v, got %v", i, expected[i], chunk)
 		}
 	}
+})
 }
 
 // just a little playaround here
