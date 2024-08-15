@@ -2,7 +2,6 @@ package chew
 
 import (
 	"encoding/json"
-
 	"strings"
 	"testing"
 
