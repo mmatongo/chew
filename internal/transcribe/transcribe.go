@@ -31,6 +31,18 @@ type TranscribeOptions struct {
 
 // code is largely inspired by https://github.com/polyfact/polyfire-api
 
+type transcribeOption func(*transcribeConfig)
+
+type transcribeConfig struct {
+	t transcriber
+}
+
+func WithTranscriber(t transcriber) transcribeOption {
+	return func(config *transcribeConfig) {
+		config.t = t
+	}
+}
+
 /*
 Transcribe uses the Google Cloud Speech-to-Text API to transcribe an audio file. It takes
 a context, the filename of the audio file to transcribe, and a TranscribeOptions struct which
@@ -39,12 +51,18 @@ to use for transcription, a potion to enable diarization including the min and m
 an option to clean up the audio file from GCS after transcription is complete.
 It returns the transcript of the audio file as a string and an error if the transcription fails.
 */
-func Transcribe(ctx context.Context, filenames []string, opts TranscribeOptions) (map[string]string, error) {
-	var t transcriber
-	if opts.UseWhisper {
-		t = &whisperTranscriber{}
-	} else {
-		t = &googleTranscriber{}
+func Transcribe(ctx context.Context, filenames []string, opts TranscribeOptions, options ...transcribeOption) (map[string]string, error) {
+	config := &transcribeConfig{}
+	for _, option := range options {
+		option(config)
+	}
+
+	if config.t == nil {
+		if opts.UseWhisper {
+			config.t = &whisperTranscriber{}
+		} else {
+			config.t = &googleTranscriber{}
+		}
 	}
 
 	var (
@@ -59,7 +77,7 @@ func Transcribe(ctx context.Context, filenames []string, opts TranscribeOptions)
 		go func(filename string) {
 			defer wg.Done()
 
-			transcript, err := t.process(ctx, filename, opts)
+			transcript, err := config.t.process(ctx, filename, opts)
 			if err != nil {
 				select {
 				case errCh <- fmt.Errorf("transcribing %s: %w", filename, err):
