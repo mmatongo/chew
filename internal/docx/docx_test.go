@@ -85,6 +85,12 @@ func TestProcessDocx(t *testing.T) {
 			expected: nil,
 			wantErr:  true,
 		},
+		{
+			name:     "A corrupted docx file",
+			input:    bytes.NewReader([]byte(`U+0000`)),
+			expected: nil,
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -135,6 +141,12 @@ func TestExtractTextFromXML(t *testing.T) {
 			xml:      `<?xml version="1.0" encoding="UTF-8"?><document><p></p><p>Stuff</p><p> </p></document>`,
 			expected: []string{"Stuff"},
 			wantErr:  false,
+		},
+		{
+			name:     "Corrupted XML",
+			xml:      string(bytes.Repeat([]byte{0x00}, 1000)),
+			expected: nil,
+			wantErr:  true,
 		},
 	}
 
