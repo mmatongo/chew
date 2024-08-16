@@ -18,21 +18,27 @@ type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-func processWhisper(ctx context.Context, filename string, opts TranscribeOptions, client httpClient) (string, error) {
+type fileOpener func(name string) (io.ReadCloser, error)
+
+func processWhisper(ctx context.Context, filename string, opts TranscribeOptions, client httpClient, opener fileOpener) (string, error) {
 	if client == nil {
 		client = &http.Client{}
 	}
+	if opener == nil {
+		opener = func(name string) (io.ReadCloser, error) {
+			return os.Open(name)
+		}
+	}
 
-	file, err := os.Open(filename)
+	file, err := opener(filename)
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %w", err)
 	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			fmt.Printf("failed to close file: %v\n", err)
+	defer func() {
+		if cerr := file.Close(); cerr != nil {
+			err = fmt.Errorf("failed to close file: %v (original error: %w)", cerr, err)
 		}
-	}(file)
+	}()
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -41,32 +47,15 @@ func processWhisper(ctx context.Context, filename string, opts TranscribeOptions
 	if err != nil {
 		return "", fmt.Errorf("failed to create form file: %w", err)
 	}
-	_, err = io.Copy(part, file)
-	if err != nil {
+	if _, err = io.Copy(part, file); err != nil {
 		return "", fmt.Errorf("failed to copy file content: %w", err)
 	}
 
-	err = writer.WriteField("model", opts.WhisperModel)
-	if err != nil {
-		return "", fmt.Errorf("failed to write model field: %w", err)
+	if err = writeFields(writer, opts); err != nil {
+		return "", err
 	}
 
-	if opts.LanguageCode != "" {
-		err = writer.WriteField("language", opts.LanguageCode)
-		if err != nil {
-			return "", fmt.Errorf("failed to write language field: %w", err)
-		}
-	}
-
-	if opts.WhisperPrompt != "" {
-		err = writer.WriteField("prompt", opts.WhisperPrompt)
-		if err != nil {
-			return "", fmt.Errorf("failed to write prompt field: %w", err)
-		}
-	}
-
-	err = writer.Close()
-	if err != nil {
+	if err = writer.Close(); err != nil {
 		return "", fmt.Errorf("failed to close writer: %w", err)
 	}
 
@@ -82,12 +71,11 @@ func processWhisper(ctx context.Context, filename string, opts TranscribeOptions
 	if err != nil {
 		return "", fmt.Errorf("failed to send request: %w", err)
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Printf("failed to close response body: %v\n", err)
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = fmt.Errorf("failed to close response body: %v (original error: %w)", cerr, err)
 		}
-	}(resp.Body)
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
@@ -97,14 +85,31 @@ func processWhisper(ctx context.Context, filename string, opts TranscribeOptions
 	var result struct {
 		Text string `json:"text"`
 	}
-	err = json.NewDecoder(resp.Body).Decode(&result)
-	if err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	return result.Text, nil
 }
 
+func writeFields(writer *multipart.Writer, opts TranscribeOptions) error {
+	fields := map[string]string{
+		"model":    opts.WhisperModel,
+		"language": opts.LanguageCode,
+		"prompt":   opts.WhisperPrompt,
+	}
+
+	for key, value := range fields {
+		if value != "" {
+			if err := writer.WriteField(key, value); err != nil {
+				return fmt.Errorf("failed to write %s field: %w", key, err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (wt *whisperTranscriber) process(ctx context.Context, filename string, opts TranscribeOptions) (string, error) {
-	return processWhisper(ctx, filename, opts, nil)
+	return processWhisper(ctx, filename, opts, nil, nil)
 }
