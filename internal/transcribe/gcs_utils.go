@@ -2,6 +2,7 @@ package transcribe
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -18,12 +19,11 @@ func uploadToGCS(ctx context.Context, client *storage.Client, bucket, filename s
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %w", err)
 	}
-	defer func(f *os.File) {
-		err := f.Close()
-		if err != nil {
-			fmt.Printf("failed to close file: %v\n", err)
+	defer func() {
+		if cerr := f.Close(); cerr != nil {
+			err = errors.Join(err, fmt.Errorf("failed to close file: %w", cerr))
 		}
-	}(f)
+	}()
 
 	objectName := filepath.Base(filename)
 	w := client.Bucket(bucket).Object(objectName).NewWriter(ctx)

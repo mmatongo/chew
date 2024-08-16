@@ -11,24 +11,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func createEmptyDocx() io.Reader {
-	return createDocxWithContent(`<?xml version="1.0" encoding="UTF-8"?><document></document>`)
+func createEmptyPptx() io.Reader {
+	return createPptxWithContent(`<?xml version="1.0" encoding="UTF-8"?><document></document>`)
 }
 
-func createSingleParagraphDocx(content string) io.Reader {
-	return createDocxWithContent(`<?xml version="1.0" encoding="UTF-8"?><document><p>` + content + `</p></document>`)
+func createSingleParagraphPptx(content string) io.Reader {
+	return createPptxWithContent(`<?xml version="1.0" encoding="UTF-8"?><document><p>` + content + `</p></document>`)
 }
 
-func createMultiParagraphDocx(paragraphs []string) io.Reader {
+func createMultiParagraphPptx(paragraphs []string) io.Reader {
 	content := `<?xml version="1.0" encoding="UTF-8"?><document>`
 	for _, p := range paragraphs {
 		content += `<p>` + p + `</p>`
 	}
 	content += `</document>`
-	return createDocxWithContent(content)
+	return createPptxWithContent(content)
 }
 
-func createDocxWithContent(content string) io.Reader {
+func createPptxWithContent(content string) io.Reader {
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
 	f, _ := w.Create("ppt/slides/slide1.xml")
@@ -54,7 +54,7 @@ func (r *errorReader) Read(p []byte) (n int, err error) {
 	return 0, assert.AnError
 }
 
-func TestProcessDocx(t *testing.T) {
+func TestProcessPptx(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    io.Reader
@@ -62,26 +62,26 @@ func TestProcessDocx(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name:     "Empty docx file",
-			input:    createEmptyDocx(),
+			name:     "Empty pptx file",
+			input:    createEmptyPptx(),
 			expected: []string{""},
 			wantErr:  false,
 		},
 		{
-			name:     "Single paragraph docx file",
-			input:    createSingleParagraphDocx("Hello from chew!"),
+			name:     "Single paragraph pptx file",
+			input:    createSingleParagraphPptx("Hello from chew!"),
 			expected: []string{"Hello from chew! "},
 			wantErr:  false,
 		},
 		{
-			name:     "Multiple paragraphs docx file",
-			input:    createMultiParagraphDocx([]string{"Paragraph one", "Paragraph two", "Paragraph three"}),
+			name:     "Multiple paragraphs pptx file",
+			input:    createMultiParagraphPptx([]string{"Paragraph one", "Paragraph two", "Paragraph three"}),
 			expected: []string{"Paragraph one Paragraph two Paragraph three "},
 			wantErr:  false,
 		},
 		{
-			name:     "Invalid docx file",
-			input:    strings.NewReader("Invalid docx file"),
+			name:     "Invalid pptx file",
+			input:    strings.NewReader("Invalid pptx file"),
 			expected: nil,
 			wantErr:  true,
 		},
@@ -91,10 +91,10 @@ func TestProcessDocx(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ProcessPptx(tt.input)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ProcessDocx() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ProcessPptx() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			assert.ElementsMatch(t, tt.expected, got, "ProcessDocx() returned unexpected result")
+			assert.ElementsMatch(t, tt.expected, got, "ProcessPptx() returned unexpected result")
 		})
 	}
 }
@@ -157,7 +157,7 @@ func TestExtractTextFromXML_Error(t *testing.T) {
 	assert.NotNil(t, err, "extractTextFromXML() did not return an error")
 }
 
-func TestProcessDocx_Error_ReadAll(t *testing.T) {
+func TestProcessPptx_Error_ReadAll(t *testing.T) {
 	_, err := ProcessPptx(&errorReader{})
-	assert.NotNil(t, err, "ProcessDocx() did not return an error")
+	assert.NotNil(t, err, "ProcessPptx() did not return an error")
 }
