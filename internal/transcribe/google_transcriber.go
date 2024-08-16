@@ -2,10 +2,10 @@ package transcribe
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 
-	speech "cloud.google.com/go/speech/apiv1"
 	"cloud.google.com/go/storage"
 )
 
@@ -14,14 +14,13 @@ type googleTranscriber struct{}
 func (gt *googleTranscriber) process(ctx context.Context, filename string, opts TranscribeOptions) (string, error) {
 	client, err := createSpeechClient(ctx, opts)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create speech client: %w", err)
 	}
-	defer func(client *speech.Client) {
-		err := client.Close()
-		if err != nil {
-			fmt.Printf("failed to close transcribe client: %v\n", err)
+	defer func() {
+		if cerr := client.Close(); cerr != nil {
+			err = errors.Join(err, fmt.Errorf("failed to close transcribe client: %w", cerr))
 		}
-	}(client)
+	}()
 
 	storageClient, err := createStorageClient(ctx, opts)
 	if err != nil {
