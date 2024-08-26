@@ -12,14 +12,6 @@ import (
 	"path/filepath"
 )
 
-type whisperTranscriber struct{}
-
-type httpClient interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
-type fileOpener func(name string) (io.ReadCloser, error)
-
 func processWhisper(ctx context.Context, filename string, opts TranscribeOptions, client httpClient, opener fileOpener) (string, error) {
 	if client == nil {
 		client = &http.Client{}

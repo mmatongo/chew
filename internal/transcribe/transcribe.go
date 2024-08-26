@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
+
+	"github.com/mmatongo/chew/internal/common"
 )
 
 /*
@@ -15,19 +17,7 @@ an option to clean up the audio file from GCS after transcription is complete.
 And also, it allows the user to specify whether to use the Whisper API for transcription, and if so,
 the API key, model, and prompt to use.
 */
-type TranscribeOptions struct {
-	CredentialsJSON   []byte
-	Bucket            string
-	LanguageCode      string
-	EnableDiarization bool
-	MinSpeakers       int
-	MaxSpeakers       int
-	CleanupOnComplete bool
-	UseWhisper        bool
-	WhisperAPIKey     string
-	WhisperModel      string
-	WhisperPrompt     string
-}
+type TranscribeOptions = common.TranscribeOptions
 
 // code is largely inspired by https://github.com/polyfact/polyfire-api
 

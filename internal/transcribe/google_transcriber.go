@@ -7,12 +7,15 @@ import (
 	"path/filepath"
 
 	"cloud.google.com/go/storage"
+
+	"github.com/mmatongo/chew/internal/audio"
+	"github.com/mmatongo/chew/internal/utils/gcs"
 )
 
 type googleTranscriber struct{}
 
 func (gt *googleTranscriber) process(ctx context.Context, filename string, opts TranscribeOptions) (string, error) {
-	client, err := createSpeechClient(ctx, opts)
+	client, err := gcs.CreateSpeechClient(ctx, opts)
 	if err != nil {
 		return "", fmt.Errorf("failed to create speech client: %w", err)
 	}
@@ -22,7 +25,7 @@ func (gt *googleTranscriber) process(ctx context.Context, filename string, opts 
 		}
 	}()
 
-	storageClient, err := createStorageClient(ctx, opts)
+	storageClient, err := gcs.CreateStorageClient(ctx, opts)
 	if err != nil {
 		return "", err
 	}
@@ -33,26 +36,26 @@ func (gt *googleTranscriber) process(ctx context.Context, filename string, opts 
 		}
 	}(storageClient)
 
-	audioInfo, err := getAudioInfo(filename)
+	audioInfo, err := audio.GetAudioInfo(filename)
 	if err != nil {
 		return "", fmt.Errorf("failed to process audio file: %w", err)
 	}
 
-	gcsURI, err := uploadToGCS(ctx, storageClient, opts.Bucket, filename)
+	gcsURI, err := gcs.UploadToGCS(ctx, storageClient, opts.Bucket, filename)
 	if err != nil {
 		return "", fmt.Errorf("failed to upload to GCS: %w", err)
 	}
 
 	if opts.CleanupOnComplete {
 		defer func(ctx context.Context, client *storage.Client, bucket, objectName string) {
-			err := deleteFromGCS(ctx, client, bucket, objectName)
+			err := gcs.DeleteFromGCS(ctx, client, bucket, objectName)
 			if err != nil {
 				fmt.Printf("failed to delete object from GCS: %v\n", err)
 			}
 		}(ctx, storageClient, opts.Bucket, filepath.Base(filename))
 	}
 
-	req := createRecognitionRequest(opts, audioInfo, gcsURI)
+	req := gcs.CreateRecognitionRequest(opts, audioInfo, gcsURI)
 
 	op, err := client.LongRunningRecognize(ctx, req)
 	if err != nil {
@@ -64,5 +67,5 @@ func (gt *googleTranscriber) process(ctx context.Context, filename string, opts 
 		return "", fmt.Errorf("failed to get long running recognition results: %w", err)
 	}
 
-	return extractTranscript(resp), nil
+	return gcs.ExtractTranscript(resp), nil
 }
