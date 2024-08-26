@@ -1,4 +1,4 @@
-package pptx
+package document
 
 import (
 	"archive/zip"
@@ -6,10 +6,11 @@ import (
 	"io"
 	"strings"
 
+	"github.com/mmatongo/chew/internal/common"
 	"github.com/mmatongo/chew/internal/utils"
 )
 
-func ProcessPptx(r io.Reader) ([]string, error) {
+func processPptxContent(r io.Reader) ([]string, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -44,4 +45,20 @@ func ProcessPptx(r io.Reader) ([]string, error) {
 		// In the event we just want chunks we can just return contents
 		return contents, nil
 	*/
+}
+
+func ProcessPptx(r io.Reader, url string) ([]common.Chunk, error) {
+	content, err := processPptxContent(r)
+	if err != nil {
+		return nil, err
+	}
+
+	var chunks []common.Chunk
+	for _, chunk := range content {
+		if strings.TrimSpace(string(chunk)) != "" {
+			chunks = append(chunks, common.Chunk{Content: string(chunk), Source: url})
+		}
+	}
+
+	return chunks, nil
 }
