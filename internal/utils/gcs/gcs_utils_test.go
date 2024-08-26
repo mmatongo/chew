@@ -1,4 +1,4 @@
-package transcribe
+package gcs
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	speech "cloud.google.com/go/speech/apiv1"
 	"cloud.google.com/go/speech/apiv1/speechpb"
 	"cloud.google.com/go/storage"
+	"github.com/mmatongo/chew/internal/common"
 	"google.golang.org/api/option"
 )
 
@@ -106,7 +107,7 @@ func Test_extractTranscript(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := extractTranscript(tt.args.resp); got != tt.want {
+			if got := ExtractTranscript(tt.args.resp); got != tt.want {
 				t.Errorf("extractTranscript() = %v, want %v", got, tt.want)
 			}
 		})
@@ -115,7 +116,7 @@ func Test_extractTranscript(t *testing.T) {
 
 func Test_createRecognitionRequest(t *testing.T) {
 	type args struct {
-		opts      TranscribeOptions
+		opts      common.TranscribeOptions
 		audioInfo *speechpb.RecognitionConfig
 		gcsURI    string
 	}
@@ -127,7 +128,7 @@ func Test_createRecognitionRequest(t *testing.T) {
 		{
 			name: "create recognition request",
 			args: args{
-				opts: TranscribeOptions{
+				opts: common.TranscribeOptions{
 					EnableDiarization: true,
 					MinSpeakers:       1,
 					MaxSpeakers:       2,
@@ -166,7 +167,7 @@ func Test_createRecognitionRequest(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := createRecognitionRequest(tt.args.opts, tt.args.audioInfo, tt.args.gcsURI); !reflect.DeepEqual(got, tt.want) {
+			if got := CreateRecognitionRequest(tt.args.opts, tt.args.audioInfo, tt.args.gcsURI); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("createRecognitionRequest() = %v, want %v", got, tt.want)
 			}
 		})
@@ -182,7 +183,7 @@ This is a limitation of the current implementation and should be refactored in t
 func Test_createSpeechClient(t *testing.T) {
 	type args struct {
 		ctx  context.Context
-		opts TranscribeOptions
+		opts common.TranscribeOptions
 	}
 	tests := []struct {
 		name    string
@@ -194,7 +195,7 @@ func Test_createSpeechClient(t *testing.T) {
 			name: "create speech client",
 			args: args{
 				ctx: context.Background(),
-				opts: TranscribeOptions{
+				opts: common.TranscribeOptions{
 					CredentialsJSON: nil,
 				},
 			},
@@ -210,7 +211,7 @@ func Test_createSpeechClient(t *testing.T) {
 			name: "create speech client with credentials",
 			args: args{
 				ctx: context.Background(),
-				opts: TranscribeOptions{
+				opts: common.TranscribeOptions{
 					CredentialsJSON: []byte(""),
 				},
 			},
@@ -220,7 +221,7 @@ func Test_createSpeechClient(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := createSpeechClient(tt.args.ctx, tt.args.opts)
+			got, err := CreateSpeechClient(tt.args.ctx, tt.args.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createSpeechClient() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -235,7 +236,7 @@ func Test_createSpeechClient(t *testing.T) {
 func Test_createStorageClient(t *testing.T) {
 	type args struct {
 		ctx  context.Context
-		opts TranscribeOptions
+		opts common.TranscribeOptions
 	}
 	tests := []struct {
 		name    string
@@ -247,7 +248,7 @@ func Test_createStorageClient(t *testing.T) {
 			name: "create storage client",
 			args: args{
 				ctx: context.Background(),
-				opts: TranscribeOptions{
+				opts: common.TranscribeOptions{
 					CredentialsJSON: nil,
 				},
 			},
@@ -265,7 +266,7 @@ func Test_createStorageClient(t *testing.T) {
 			name: "create storage client with credentials",
 			args: args{
 				ctx: context.Background(),
-				opts: TranscribeOptions{
+				opts: common.TranscribeOptions{
 					CredentialsJSON: []byte(""),
 				},
 			},
@@ -275,7 +276,7 @@ func Test_createStorageClient(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := createStorageClient(tt.args.ctx, tt.args.opts)
+			got, err := CreateStorageClient(tt.args.ctx, tt.args.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createStorageClient() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -348,7 +349,7 @@ func Test_uploadToGCS(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := uploadToGCS(context.Background(), client, tt.bucket, tt.filename)
+			got, err := UploadToGCS(context.Background(), client, tt.bucket, tt.filename)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("uploadToGCS() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -407,7 +408,7 @@ func Test_deleteFromGCS(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := deleteFromGCS(context.Background(), client, tt.bucket, tt.objectName)
+			err := DeleteFromGCS(context.Background(), client, tt.bucket, tt.objectName)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("deleteFromGCS() error = %v, wantErr %v", err, tt.wantErr)
 				return
