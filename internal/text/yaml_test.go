@@ -34,6 +34,15 @@ func TestProcessYAML(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "error",
+			args: args{
+				r:   strings.NewReader("key: value, key2: value2"),
+				url: "https://example.com/data.yaml",
+			},
+			want:    nil,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
