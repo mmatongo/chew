@@ -8,14 +8,7 @@ import (
 
 	"github.com/mmatongo/chew/internal/common"
 	"github.com/mmatongo/chew/internal/utils"
-	"github.com/stretchr/testify/assert"
 )
-
-type errorReader struct{}
-
-func (r *errorReader) Read(p []byte) (n int, err error) {
-	return 0, assert.AnError
-}
 
 func processDocxContent(r io.Reader) ([]string, error) {
 	data, err := io.ReadAll(r)

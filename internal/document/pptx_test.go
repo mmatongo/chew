@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/mmatongo/chew/internal/common"
-	"github.com/stretchr/testify/assert"
 )
 
 func createPptxWithContent(content string) io.Reader {
@@ -68,5 +67,7 @@ func TestProcessPptx(t *testing.T) {
 
 func TestProcessPptx_Error_ReadAll(t *testing.T) {
 	_, err := processPptxContent(&errorReader{})
-	assert.NotNil(t, err, "ProcessPptx() did not return an error")
+	if err == nil {
+		t.Error("ProcessPptx() did not return an error, but one was expected")
+	}
 }

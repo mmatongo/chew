@@ -11,8 +11,12 @@ import (
 	"github.com/mmatongo/chew/internal/common"
 )
 
-func getRootPath() string {
-	pwd, _ := os.Getwd()
+func getRootPath(t *testing.T) string {
+	t.Helper()
+	pwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getting current folder: %s", err)
+	}
 	pwd = filepath.Dir(filepath.Dir(pwd))
 	return pwd
 }
@@ -32,7 +36,7 @@ func TestProcessPDF(t *testing.T) {
 			name: "success",
 			args: args{
 				r: func() io.Reader {
-					f, _ := os.Open(filepath.Join(getRootPath(), "testdata", "files", "test.pdf"))
+					f, _ := os.Open(filepath.Join(getRootPath(t), "testdata", "files", "test.pdf"))
 					return f
 				}(),
 				url: "https://example.com/test.pdf",

@@ -3,13 +3,21 @@ package document
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"io"
 	"reflect"
 	"testing"
 
 	"github.com/mmatongo/chew/internal/common"
-	"github.com/stretchr/testify/assert"
 )
+
+type errorReader struct{}
+
+var errMockRead = errors.New("mock read error")
+
+func (r *errorReader) Read(p []byte) (n int, err error) {
+	return 0, errMockRead
+}
 
 func createDocxWithContent(content string) io.Reader {
 	buf := new(bytes.Buffer)
@@ -79,5 +87,7 @@ func TestProcessDocx(t *testing.T) {
 
 func TestProcessDocx_Error_ReadAll(t *testing.T) {
 	_, err := processPptxContent(&errorReader{})
-	assert.NotNil(t, err, "ProcessDocx() did not return an error")
+	if err == nil {
+		t.Error("ProcessDocx() did not return an error, but one was expected")
+	}
 }

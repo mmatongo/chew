@@ -20,7 +20,7 @@ func Test_wavProcessor_process(t *testing.T) {
 			name: "success",
 			p:    &wavProcessor{},
 			args: args{
-				filename: getRootPath() + "/testdata/audio/test.wav",
+				filename: getRootPath(t) + "/testdata/audio/test.wav",
 			},
 			want: &audioInfo{
 				sampleRate:  44100,
@@ -32,7 +32,7 @@ func Test_wavProcessor_process(t *testing.T) {
 			name: "file not found",
 			p:    &wavProcessor{},
 			args: args{
-				filename: getRootPath() + "/testdata/audio/test_new.wav",
+				filename: getRootPath(t) + "/testdata/audio/test_new.wav",
 			},
 			want:    nil,
 			wantErr: true,
@@ -41,7 +41,7 @@ func Test_wavProcessor_process(t *testing.T) {
 			name: "invalid WAV file",
 			p:    &wavProcessor{},
 			args: args{
-				filename: getRootPath() + "/testdata/audio/test.flac",
+				filename: getRootPath(t) + "/testdata/audio/test.flac",
 			},
 			want:    nil,
 			wantErr: true,

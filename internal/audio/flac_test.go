@@ -20,7 +20,7 @@ func Test_flacProcessor_process(t *testing.T) {
 			name: "success",
 			p:    &flacProcessor{},
 			args: args{
-				filename: getRootPath() + "/testdata/audio/test.flac",
+				filename: getRootPath(t) + "/testdata/audio/test.flac",
 			},
 			want: &audioInfo{
 				sampleRate:  96000,
@@ -33,7 +33,7 @@ func Test_flacProcessor_process(t *testing.T) {
 			name: "file not found",
 			p:    &flacProcessor{},
 			args: args{
-				filename: getRootPath() + "/testdata/audio/test_new.flac",
+				filename: getRootPath(t) + "/testdata/audio/test_new.flac",
 			},
 			want:    nil,
 			wantErr: true,

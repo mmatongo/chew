@@ -15,7 +15,7 @@ import (
 type googleTranscriber struct{}
 
 func (gt *googleTranscriber) process(ctx context.Context, filename string, opts TranscribeOptions) (string, error) {
-	client, err := gcs.CreateSpeechClient(ctx, opts)
+	client, err := gcs.NewSpeechClient(ctx, opts)
 	if err != nil {
 		return "", fmt.Errorf("failed to create speech client: %w", err)
 	}
@@ -25,7 +25,7 @@ func (gt *googleTranscriber) process(ctx context.Context, filename string, opts 
 		}
 	}()
 
-	storageClient, err := gcs.CreateStorageClient(ctx, opts)
+	storageClient, err := gcs.NewStorageClient(ctx, opts)
 	if err != nil {
 		return "", err
 	}
@@ -55,7 +55,7 @@ func (gt *googleTranscriber) process(ctx context.Context, filename string, opts 
 		}(ctx, storageClient, opts.Bucket, filepath.Base(filename))
 	}
 
-	req := gcs.CreateRecognitionRequest(opts, audioInfo, gcsURI)
+	req := gcs.NewRecognitionRequest(opts, audioInfo, gcsURI)
 
 	op, err := client.LongRunningRecognize(ctx, req)
 	if err != nil {
