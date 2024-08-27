@@ -1,31 +1,19 @@
 package chew
 
 import (
-	"bytes"
 	"context"
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
 
-	"github.com/PuerkitoBio/goquery"
-	"github.com/ledongthuc/pdf"
-	"gopkg.in/yaml.v3"
-
-	"github.com/mmatongo/chew/internal/docx"
-	"github.com/mmatongo/chew/internal/pptx"
+	"github.com/mmatongo/chew/internal/common"
+	"github.com/mmatongo/chew/internal/document"
+	"github.com/mmatongo/chew/internal/text"
 	"github.com/mmatongo/chew/internal/transcribe"
 	"github.com/mmatongo/chew/internal/utils"
 )
-
-type Chunk struct {
-	Content string
-	Source  string
-}
 
 const (
 	contentTypeHTML     = "text/html"
@@ -39,16 +27,16 @@ const (
 	contentTypePptx     = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 )
 
-var contentTypeProcessors = map[string]func(io.Reader, string) ([]Chunk, error){
-	contentTypeHTML:     processHTML,
-	contentTypePDF:      processPDF,
-	contentTypeCSV:      processCSV,
-	contentTypeJSON:     processJSON,
-	contentTypeYAML:     processYAML,
-	contentTypeMarkdown: processText,
-	contentTypeDocx:     processDocx,
-	contentTypeText:     processText,
-	contentTypePptx:     processPptx,
+var contentTypeProcessors = map[string]func(io.Reader, string) ([]common.Chunk, error){
+	contentTypeHTML:     text.ProcessHTML,
+	contentTypeCSV:      text.ProcessCSV,
+	contentTypeJSON:     text.ProcessJSON,
+	contentTypeYAML:     text.ProcessYAML,
+	contentTypeMarkdown: text.ProcessText,
+	contentTypeText:     text.ProcessText,
+	contentTypeDocx:     document.ProcessDocx,
+	contentTypePptx:     document.ProcessPptx,
+	contentTypePDF:      document.ProcessPDF,
 }
 
 /*
@@ -68,19 +56,19 @@ the content type based on the file extension instead of the content type
 returned by the server. i.e. if the server returns text/plain but the file is a markdown file
 the content types are the biggest culprits of this
 */
-var validExtensions = map[string]func(io.Reader, string) ([]Chunk, error){
-	".md":   processText,
-	".csv":  processCSV,
-	".json": processJSON,
-	".yaml": processYAML,
-	".html": processHTML,
+var validExtensions = map[string]func(io.Reader, string) ([]common.Chunk, error){
+	".md":   text.ProcessText,
+	".csv":  text.ProcessCSV,
+	".json": text.ProcessJSON,
+	".yaml": text.ProcessYAML,
+	".html": text.ProcessHTML,
 }
 
 /*
 For content types that can also return text/plain as their content types we need to manually check
 their extension to properly process them. I feel like this could be done better but this is my solution for now.
 */
-func getProcessor(contentType, url string) (func(io.Reader, string) ([]Chunk, error), error) {
+func getProcessor(contentType, url string) (func(io.Reader, string) ([]common.Chunk, error), error) {
 	for key, proc := range contentTypeProcessors {
 		if strings.Contains(contentType, key) {
 			return proc, nil
@@ -106,14 +94,14 @@ The slice of strings to be processed can be URLs or file paths
 The context is optional and can be used to cancel the processing
 of the URLs after a certain amount of time
 */
-func Process(urls []string, ctxs ...context.Context) ([]Chunk, error) {
+func Process(urls []string, ctxs ...context.Context) ([]common.Chunk, error) {
 	ctx := context.Background()
 	if len(ctxs) > 0 {
 		ctx = ctxs[0]
 	}
 
 	var (
-		result []Chunk
+		result []common.Chunk
 		wg     sync.WaitGroup
 		mu     sync.Mutex
 		errCh  = make(chan error, len(urls))
@@ -157,7 +145,7 @@ func Process(urls []string, ctxs ...context.Context) ([]Chunk, error) {
 	return result, nil
 }
 
-func processURL(url string, ctxs ...context.Context) ([]Chunk, error) {
+func processURL(url string, ctxs ...context.Context) ([]common.Chunk, error) {
 	ctx := context.Background()
 	if len(ctxs) > 0 {
 		ctx = ctxs[0]
@@ -182,175 +170,4 @@ func processURL(url string, ctxs ...context.Context) ([]Chunk, error) {
 	}
 
 	return processor(resp.Body, url)
-}
-
-func processHTML(r io.Reader, url string) ([]Chunk, error) {
-	doc, err := goquery.NewDocumentFromReader(r)
-	if err != nil {
-		return nil, err
-	}
-
-	var chunks []Chunk
-	/*
-		We're only interested in the text content of the HTML document
-		so we're going to ignore the tags that don't contain useful text.
-		This is a very naive approach and might not work for all HTML documents unfortunately
-	*/
-
-	doc.Find("nav, header, footer").Remove()
-
-	doc.Find("p, h1, h2, h3, h4, h5, h6, li").Each(func(_ int, s *goquery.Selection) {
-		text := strings.TrimSpace(s.Text())
-		if text != "" {
-			chunks = append(chunks, Chunk{Content: text, Source: url})
-		}
-	})
-
-	return chunks, nil
-}
-
-func processPDF(r io.Reader, url string) ([]Chunk, error) {
-	pdfData, err := io.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-
-	f, err := pdf.NewReader(bytes.NewReader(pdfData), int64(len(pdfData)))
-	if err != nil {
-		return nil, err
-	}
-
-	var chunks []Chunk
-	for i := 1; i <= f.NumPage(); i++ {
-		p := f.Page(i)
-		if p.V.IsNull() {
-			continue
-		}
-		text, err := p.GetPlainText(nil)
-		if err != nil {
-			log.Printf("Error extracting text from page %d: %v\n\n", i, err)
-			continue
-		}
-
-		text = strings.TrimSpace(text)
-		text = strings.ReplaceAll(text, "\n", "\n\n")
-
-		chunks = append(chunks, Chunk{
-			Content: text,
-			Source:  fmt.Sprintf("%s#page=%d", url, i),
-		})
-	}
-
-	if len(chunks) == 0 {
-		return nil, err
-	}
-
-	return chunks, nil
-}
-
-func processCSV(r io.Reader, url string) ([]Chunk, error) {
-	csvReader := csv.NewReader(r)
-	var records [][]string
-	var err error
-
-	records, err = csvReader.ReadAll()
-	if err != nil {
-		return nil, err
-	}
-
-	var chunks []Chunk
-	for _, record := range records {
-		chunks = append(chunks, Chunk{Content: strings.Join(record, ", "), Source: url})
-	}
-
-	return chunks, nil
-}
-
-func processJSON(r io.Reader, url string) ([]Chunk, error) {
-	var data interface{}
-	if err := json.NewDecoder(r).Decode(&data); err != nil {
-		return nil, err
-	}
-
-	jsonStr, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-
-	return []Chunk{{Content: string(jsonStr), Source: url}}, nil
-}
-
-func processYAML(r io.Reader, url string) ([]Chunk, error) {
-	var data interface{}
-	if err := yaml.NewDecoder(r).Decode(&data); err != nil {
-		return nil, err
-	}
-
-	yamlStr, err := yaml.Marshal(data)
-	if err != nil {
-		return nil, err
-	}
-
-	return []Chunk{{Content: string(yamlStr), Source: url}}, nil
-}
-
-/*
-Not necessarily a good idea to sanitize markdown content
-if theres a need to sanitize markdown content it should be optional
-
-func processMarkdown(r io.Reader, url string) ([]Chunk, error) {
-	content, err := io.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-	sanitizedMarkdown := markdown.RemoveMarkdownSyntax(string(content))
-
-	return []Chunk{{Content: sanitizedMarkdown, Source: url}}, nil
-}
-*/
-
-func processDocx(r io.Reader, url string) ([]Chunk, error) {
-	content, err := docx.ProcessDocx(r)
-	if err != nil {
-		return nil, err
-	}
-
-	var chunks []Chunk
-	for _, chunk := range content {
-		if strings.TrimSpace(string(chunk)) != "" {
-			chunks = append(chunks, Chunk{Content: string(chunk), Source: url})
-		}
-	}
-
-	return chunks, nil
-}
-
-func processPptx(r io.Reader, url string) ([]Chunk, error) {
-	content, err := pptx.ProcessPptx(r)
-	if err != nil {
-		return nil, err
-	}
-
-	var chunks []Chunk
-	for _, chunk := range content {
-		if strings.TrimSpace(string(chunk)) != "" {
-			chunks = append(chunks, Chunk{Content: string(chunk), Source: url})
-		}
-	}
-
-	return chunks, nil
-}
-
-/*
-Not entirely sure about this one because I've had instances where the
-content type is text/plain but the content is actually HTML
-So I'm just going to leave it here for now
-*/
-func processText(r io.Reader, url string) ([]Chunk, error) {
-	content, err := io.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-
-	return []Chunk{{Content: string(content), Source: url}}, nil
 }

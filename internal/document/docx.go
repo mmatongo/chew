@@ -1,4 +1,4 @@
-package docx
+package document
 
 import (
 	"archive/zip"
@@ -6,10 +6,18 @@ import (
 	"io"
 	"strings"
 
+	"github.com/mmatongo/chew/internal/common"
 	"github.com/mmatongo/chew/internal/utils"
+	"github.com/stretchr/testify/assert"
 )
 
-func ProcessDocx(r io.Reader) ([]string, error) {
+type errorReader struct{}
+
+func (r *errorReader) Read(p []byte) (n int, err error) {
+	return 0, assert.AnError
+}
+
+func processDocxContent(r io.Reader) ([]string, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -44,4 +52,20 @@ func ProcessDocx(r io.Reader) ([]string, error) {
 		// In the event we just want chunks we can just return contents
 		return contents, nil
 	*/
+}
+
+func ProcessDocx(r io.Reader, url string) ([]common.Chunk, error) {
+	content, err := processDocxContent(r)
+	if err != nil {
+		return nil, err
+	}
+
+	var chunks []common.Chunk
+	for _, chunk := range content {
+		if strings.TrimSpace(string(chunk)) != "" {
+			chunks = append(chunks, common.Chunk{Content: string(chunk), Source: url})
+		}
+	}
+
+	return chunks, nil
 }

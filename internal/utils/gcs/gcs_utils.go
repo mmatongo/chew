@@ -1,4 +1,4 @@
-package transcribe
+package gcs
 
 import (
 	"context"
@@ -11,10 +11,11 @@ import (
 	speech "cloud.google.com/go/speech/apiv1"
 	"cloud.google.com/go/speech/apiv1/speechpb"
 	"cloud.google.com/go/storage"
+	"github.com/mmatongo/chew/internal/common"
 	"google.golang.org/api/option"
 )
 
-func uploadToGCS(ctx context.Context, client *storage.Client, bucket, filename string) (string, error) {
+func UploadToGCS(ctx context.Context, client *storage.Client, bucket, filename string) (string, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %w", err)
@@ -37,14 +38,14 @@ func uploadToGCS(ctx context.Context, client *storage.Client, bucket, filename s
 	return fmt.Sprintf("gs://%s/%s", bucket, objectName), nil
 }
 
-func deleteFromGCS(ctx context.Context, client *storage.Client, bucket, objectName string) error {
+func DeleteFromGCS(ctx context.Context, client *storage.Client, bucket, objectName string) error {
 	if err := client.Bucket(bucket).Object(objectName).Delete(ctx); err != nil {
 		return fmt.Errorf("failed to delete object from GCS: %w", err)
 	}
 	return nil
 }
 
-func createStorageClient(ctx context.Context, opts TranscribeOptions) (*storage.Client, error) {
+func CreateStorageClient(ctx context.Context, opts common.TranscribeOptions) (*storage.Client, error) {
 	var clientOpts []option.ClientOption
 	if opts.CredentialsJSON != nil {
 		clientOpts = append(clientOpts, option.WithCredentialsJSON(opts.CredentialsJSON))
@@ -52,7 +53,7 @@ func createStorageClient(ctx context.Context, opts TranscribeOptions) (*storage.
 	return storage.NewClient(ctx, clientOpts...)
 }
 
-func createSpeechClient(ctx context.Context, opts TranscribeOptions) (*speech.Client, error) {
+func CreateSpeechClient(ctx context.Context, opts common.TranscribeOptions) (*speech.Client, error) {
 	var clientOpts []option.ClientOption
 	if opts.CredentialsJSON != nil {
 		clientOpts = append(clientOpts, option.WithCredentialsJSON(opts.CredentialsJSON))
@@ -60,7 +61,7 @@ func createSpeechClient(ctx context.Context, opts TranscribeOptions) (*speech.Cl
 	return speech.NewClient(ctx, clientOpts...)
 }
 
-func createRecognitionRequest(opts TranscribeOptions, audioInfo *speechpb.RecognitionConfig, gcsURI string) *speechpb.LongRunningRecognizeRequest {
+func CreateRecognitionRequest(opts common.TranscribeOptions, audioInfo *speechpb.RecognitionConfig, gcsURI string) *speechpb.LongRunningRecognizeRequest {
 	diarizationConfig := &speechpb.SpeakerDiarizationConfig{
 		EnableSpeakerDiarization: opts.EnableDiarization,
 		MinSpeakerCount:          int32(opts.MinSpeakers),
@@ -87,7 +88,7 @@ func createRecognitionRequest(opts TranscribeOptions, audioInfo *speechpb.Recogn
 	}
 }
 
-func extractTranscript(resp *speechpb.LongRunningRecognizeResponse) string {
+func ExtractTranscript(resp *speechpb.LongRunningRecognizeResponse) string {
 	var transcript string
 	for _, result := range resp.Results {
 		for _, alt := range result.Alternatives {

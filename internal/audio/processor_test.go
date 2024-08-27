@@ -1,4 +1,4 @@
-package transcribe
+package audio
 
 import (
 	"errors"
@@ -246,7 +246,7 @@ func Test_getAudioInfo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := getAudioInfo(tt.args.filename)
+			got, err := GetAudioInfo(tt.args.filename)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getAudioInfo() error = %v, wantErr %v", err, tt.wantErr)
 				return

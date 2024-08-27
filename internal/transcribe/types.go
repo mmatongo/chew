@@ -1,27 +1,19 @@
 package transcribe
 
-import "context"
-
-type audioInfo struct {
-	sampleRate  int
-	numChannels int
-	format      string
-}
-
-type audioProcessor interface {
-	process(filename string) (*audioInfo, error)
-}
-
-type audioProcessorFactory interface {
-	createProcessor(fileExtension string) (audioProcessor, error)
-}
+import (
+	"context"
+	"io"
+	"net/http"
+)
 
 type transcriber interface {
 	process(ctx context.Context, filename string, opts TranscribeOptions) (string, error)
 }
 
-type defaultAudioProcessorFactory struct{}
+type whisperTranscriber struct{}
 
-type audioInfoRetriever struct {
-	factory audioProcessorFactory
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
 }
+
+type fileOpener func(name string) (io.ReadCloser, error)
