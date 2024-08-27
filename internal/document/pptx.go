@@ -6,8 +6,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/mmatongo/chew/internal/common"
-	"github.com/mmatongo/chew/internal/utils"
+	"github.com/mmatongo/chew/v1/internal/common"
+	"github.com/mmatongo/chew/v1/internal/utils"
 )
 
 func processPptxContent(r io.Reader) ([]string, error) {

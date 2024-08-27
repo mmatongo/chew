@@ -11,7 +11,7 @@ import (
 	speech "cloud.google.com/go/speech/apiv1"
 	"cloud.google.com/go/speech/apiv1/speechpb"
 	"cloud.google.com/go/storage"
-	"github.com/mmatongo/chew/internal/common"
+	"github.com/mmatongo/chew/v1/internal/common"
 	"google.golang.org/api/option"
 )
 

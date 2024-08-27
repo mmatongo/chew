@@ -3,7 +3,7 @@ package text
 import (
 	"io"
 
-	"github.com/mmatongo/chew/internal/common"
+	"github.com/mmatongo/chew/v1/internal/common"
 	"gopkg.in/yaml.v3"
 )
 

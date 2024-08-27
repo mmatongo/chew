@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mmatongo/chew"
+	"github.com/mmatongo/chew/v1"
 )
 
 //export Process

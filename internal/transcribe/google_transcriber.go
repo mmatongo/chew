@@ -8,8 +8,8 @@ import (
 
 	"cloud.google.com/go/storage"
 
-	"github.com/mmatongo/chew/internal/audio"
-	"github.com/mmatongo/chew/internal/utils/gcs"
+	"github.com/mmatongo/chew/v1/internal/audio"
+	"github.com/mmatongo/chew/v1/internal/utils/gcs"
 )
 
 type googleTranscriber struct{}

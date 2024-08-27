@@ -1,6 +1,6 @@
-module github.com/mmatongo/chew
+module github.com/mmatongo/chew/v1
 
-go 1.22.6
+go 1.23
 
 require (
 	cloud.google.com/go/speech v1.23.1

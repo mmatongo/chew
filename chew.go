@@ -8,11 +8,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mmatongo/chew/internal/common"
-	"github.com/mmatongo/chew/internal/document"
-	"github.com/mmatongo/chew/internal/text"
-	"github.com/mmatongo/chew/internal/transcribe"
-	"github.com/mmatongo/chew/internal/utils"
+	"github.com/mmatongo/chew/v1/internal/common"
+	"github.com/mmatongo/chew/v1/internal/document"
+	"github.com/mmatongo/chew/v1/internal/text"
+	"github.com/mmatongo/chew/v1/internal/transcribe"
+	"github.com/mmatongo/chew/v1/internal/utils"
 )
 
 const (

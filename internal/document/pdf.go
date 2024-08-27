@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/ledongthuc/pdf"
-	"github.com/mmatongo/chew/internal/common"
+	"github.com/mmatongo/chew/v1/internal/common"
 )
 
 func ProcessPDF(r io.Reader, url string) ([]common.Chunk, error) {

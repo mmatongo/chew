@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/mmatongo/chew/internal/common"
+	"github.com/mmatongo/chew/v1/internal/common"
 )
 
 func ProcessCSV(r io.Reader, url string) ([]common.Chunk, error) {

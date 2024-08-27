@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mmatongo/chew/internal/common"
-	"github.com/mmatongo/chew/internal/text"
+	"github.com/mmatongo/chew/v1/internal/common"
+	"github.com/mmatongo/chew/v1/internal/text"
 )
 
 func mockProcessor(r io.Reader, url string) ([]common.Chunk, error) {

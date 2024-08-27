@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/mmatongo/chew"
+	"github.com/mmatongo/chew/v1"
 )
 
 func main() {

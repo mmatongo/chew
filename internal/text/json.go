@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/mmatongo/chew/internal/common"
+	"github.com/mmatongo/chew/v1/internal/common"
 )
 
 func ProcessJSON(r io.Reader, url string) ([]common.Chunk, error) {

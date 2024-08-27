@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/mmatongo/chew/internal/common"
+	"github.com/mmatongo/chew/v1/internal/common"
 )
 
 func createPptxWithContent(content string) io.Reader {

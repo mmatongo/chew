@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/mmatongo/chew/internal/common"
+	"github.com/mmatongo/chew/v1/internal/common"
 )
 
 func ProcessHTML(r io.Reader, url string) ([]common.Chunk, error) {
