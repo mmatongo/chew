@@ -9,7 +9,6 @@ require (
 	github.com/go-audio/wav v1.1.0
 	github.com/ledongthuc/pdf v0.0.0-20240201131950-da5b75280b06
 	github.com/mewkiz/flac v1.0.11
-	github.com/stretchr/testify v1.9.0
 	google.golang.org/api v0.187.0
 )
 
@@ -20,7 +19,6 @@ require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.8 // indirect
 	cloud.google.com/go/longrunning v0.5.7 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-audio/audio v1.0.0 // indirect
 	github.com/go-audio/riff v1.0.0 // indirect
@@ -35,7 +33,6 @@ require (
 	github.com/icza/bitio v1.1.0 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/mewkiz/pkg v0.0.0-20230226050401-4010bf0fec14 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.49.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect
