@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/mmatongo/chew/internal/common"
+	"github.com/mmatongo/chew/internal/text"
 )
 
 func mockProcessor(r io.Reader, url string) ([]common.Chunk, error) {
@@ -81,6 +82,68 @@ func Test_processURL(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("processURL() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getProcessor(t *testing.T) {
+	type args struct {
+		contentType string
+		url         string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    func(io.Reader, string) ([]common.Chunk, error)
+		wantErr bool
+	}{
+		{
+			name: "success",
+			args: args{
+				contentType: "text/html",
+				url:         "https://example.com/page.html",
+			},
+			want:    mockProcessor,
+			wantErr: false,
+		},
+		{
+			name: "unknown content type",
+			args: args{
+				contentType: "octet/stream",
+				url:         "https://example.com/page.html",
+			},
+			want:    text.ProcessHTML,
+			wantErr: false,
+		},
+		{
+			name: "unsupported content type",
+			args: args{
+				contentType: "application/octet-stream",
+				url:         "https://example.com/page.htt",
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := getProcessor(tt.args.contentType, tt.args.url)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getProcessor() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if got == nil && tt.want != nil {
+				t.Errorf("getProcessor() returned nil, want non-nil")
+			} else if got != nil && tt.want == nil {
+				t.Errorf("getProcessor() returned non-nil, want nil")
+			} else if got != nil {
+				gotType := reflect.TypeOf(got)
+				wantType := reflect.TypeOf(tt.want)
+				if gotType != wantType {
+					t.Errorf("getProcessor() returned function of type %v, want %v", gotType, wantType)
+				}
 			}
 		})
 	}
