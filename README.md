@@ -1,7 +1,7 @@
 <div align="center">
 <img
     width=40%
-    src="assets/gopher-eating.svg"
+    src="https://raw.githubusercontent.com/mmatongo/chew/master/assets/gopher-eating.svg"
     alt="chew logo"
 />
 
