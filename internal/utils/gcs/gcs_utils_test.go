@@ -114,7 +114,7 @@ func Test_extractTranscript(t *testing.T) {
 	}
 }
 
-func Test_createRecognitionRequest(t *testing.T) {
+func Test_newRecognitionRequest(t *testing.T) {
 	type args struct {
 		opts      common.TranscribeOptions
 		audioInfo *speechpb.RecognitionConfig
@@ -167,7 +167,7 @@ func Test_createRecognitionRequest(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := CreateRecognitionRequest(tt.args.opts, tt.args.audioInfo, tt.args.gcsURI); !reflect.DeepEqual(got, tt.want) {
+			if got := NewRecognitionRequest(tt.args.opts, tt.args.audioInfo, tt.args.gcsURI); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("createRecognitionRequest() = %v, want %v", got, tt.want)
 			}
 		})
@@ -180,7 +180,7 @@ and the functions are not written in a way that allows for mocking of the GCP cl
 This is a limitation of the current implementation and should be refactored in the future.
 */
 
-func Test_createSpeechClient(t *testing.T) {
+func Test_newSpeechClient(t *testing.T) {
 	type args struct {
 		ctx  context.Context
 		opts common.TranscribeOptions
@@ -221,7 +221,7 @@ func Test_createSpeechClient(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := CreateSpeechClient(tt.args.ctx, tt.args.opts)
+			got, err := NewSpeechClient(tt.args.ctx, tt.args.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createSpeechClient() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -276,7 +276,7 @@ func Test_createStorageClient(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := CreateStorageClient(tt.args.ctx, tt.args.opts)
+			got, err := NewStorageClient(tt.args.ctx, tt.args.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createStorageClient() error = %v, wantErr %v", err, tt.wantErr)
 				return

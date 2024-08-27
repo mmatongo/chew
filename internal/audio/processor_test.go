@@ -28,8 +28,12 @@ func (m *mockFactory) createProcessor(string) (audioProcessor, error) {
 	return m.processor, m.err
 }
 
-func getRootPath() string {
-	pwd, _ := os.Getwd()
+func getRootPath(t *testing.T) string {
+	t.Helper()
+	pwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getting current folder: %s", err)
+	}
 	pwd = filepath.Dir(filepath.Dir(pwd))
 	return pwd
 }
@@ -202,7 +206,7 @@ func Test_getAudioInfo(t *testing.T) {
 		{
 			name: "MP3 file",
 			args: args{
-				filename: getRootPath() + "/testdata/audio/test.mp3",
+				filename: getRootPath(t) + "/testdata/audio/test.mp3",
 			},
 			want: &speechpb.RecognitionConfig{
 				Encoding:          speechpb.RecognitionConfig_MP3,
@@ -214,7 +218,7 @@ func Test_getAudioInfo(t *testing.T) {
 		{
 			name: "FLAC file",
 			args: args{
-				filename: getRootPath() + "/testdata/audio/test.flac",
+				filename: getRootPath(t) + "/testdata/audio/test.flac",
 			},
 			want: &speechpb.RecognitionConfig{
 				Encoding:          speechpb.RecognitionConfig_FLAC,
@@ -226,7 +230,7 @@ func Test_getAudioInfo(t *testing.T) {
 		{
 			name: "WAV file",
 			args: args{
-				filename: getRootPath() + "/testdata/audio/test.wav",
+				filename: getRootPath(t) + "/testdata/audio/test.wav",
 			},
 			want: &speechpb.RecognitionConfig{
 				Encoding:          speechpb.RecognitionConfig_LINEAR16,
@@ -238,7 +242,7 @@ func Test_getAudioInfo(t *testing.T) {
 		{
 			name: "Unsupported file format",
 			args: args{
-				filename: getRootPath() + "/testdata/audio/test.ogg",
+				filename: getRootPath(t) + "/testdata/audio/test.ogg",
 			},
 			want:    nil,
 			wantErr: true,

@@ -45,7 +45,7 @@ func DeleteFromGCS(ctx context.Context, client *storage.Client, bucket, objectNa
 	return nil
 }
 
-func CreateStorageClient(ctx context.Context, opts common.TranscribeOptions) (*storage.Client, error) {
+func NewStorageClient(ctx context.Context, opts common.TranscribeOptions) (*storage.Client, error) {
 	var clientOpts []option.ClientOption
 	if opts.CredentialsJSON != nil {
 		clientOpts = append(clientOpts, option.WithCredentialsJSON(opts.CredentialsJSON))
@@ -53,7 +53,7 @@ func CreateStorageClient(ctx context.Context, opts common.TranscribeOptions) (*s
 	return storage.NewClient(ctx, clientOpts...)
 }
 
-func CreateSpeechClient(ctx context.Context, opts common.TranscribeOptions) (*speech.Client, error) {
+func NewSpeechClient(ctx context.Context, opts common.TranscribeOptions) (*speech.Client, error) {
 	var clientOpts []option.ClientOption
 	if opts.CredentialsJSON != nil {
 		clientOpts = append(clientOpts, option.WithCredentialsJSON(opts.CredentialsJSON))
@@ -61,7 +61,7 @@ func CreateSpeechClient(ctx context.Context, opts common.TranscribeOptions) (*sp
 	return speech.NewClient(ctx, clientOpts...)
 }
 
-func CreateRecognitionRequest(opts common.TranscribeOptions, audioInfo *speechpb.RecognitionConfig, gcsURI string) *speechpb.LongRunningRecognizeRequest {
+func NewRecognitionRequest(opts common.TranscribeOptions, audioInfo *speechpb.RecognitionConfig, gcsURI string) *speechpb.LongRunningRecognizeRequest {
 	diarizationConfig := &speechpb.SpeakerDiarizationConfig{
 		EnableSpeakerDiarization: opts.EnableDiarization,
 		MinSpeakerCount:          int32(opts.MinSpeakers),
