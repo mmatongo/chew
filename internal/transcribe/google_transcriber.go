@@ -14,6 +14,9 @@ import (
 
 type googleTranscriber struct{}
 
+/*
+This relies too heavily on external dependencies and is not easily testable. A refactor is needed to make it more testable and is currently in progress.
+*/
 func (gt *googleTranscriber) process(ctx context.Context, filename string, opts TranscribeOptions) (string, error) {
 	client, err := gcs.NewSpeechClient(ctx, opts)
 	if err != nil {
