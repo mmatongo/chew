@@ -128,6 +128,15 @@ func Test_getProcessor(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
+		{
+			name: "no extension",
+			args: args{
+				contentType: "octet/stream",
+				url:         "https://example.com/page",
+			},
+			want:    nil,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -153,7 +162,6 @@ func Test_getProcessor(t *testing.T) {
 }
 
 func TestProcess(t *testing.T) {
-	// today I learned that httptest.NewServer is a thing
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/text":
