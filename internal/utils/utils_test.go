@@ -3,6 +3,7 @@ package utils
 import (
 	"archive/zip"
 	"bytes"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -87,7 +88,7 @@ func TestRemoveMarkdownSyntax(t *testing.T) {
 	}
 }
 
-func TestGetFileExtensionFromUrl(t *testing.T) {
+func TestGetFileExtension(t *testing.T) {
 	type args struct {
 		rawUrl string
 	}
@@ -113,10 +114,42 @@ func TestGetFileExtensionFromUrl(t *testing.T) {
 			want:    "",
 			wantErr: true,
 		},
+		{
+			name: "Test 3",
+			args: args{
+				rawUrl: "https://example.com/test",
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "Test 4",
+			args: args{
+				rawUrl: "file:///test.csv",
+			},
+			want:    ".csv",
+			wantErr: false,
+		},
+		{
+			name: "Test 5",
+			args: args{
+				rawUrl: "file:///test",
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "Test 6",
+			args: args{
+				rawUrl: string([]byte{0x01, 0x02, 0x03, 0x04, 0x05}),
+			},
+			want:    "",
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetFileExtensionFromUrl(tt.args.rawUrl)
+			got, err := GetFileExtension(tt.args.rawUrl)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetFileExtensionFromUrl() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -191,6 +224,39 @@ func TestExtractTextFromXML(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ExtractTextFromXML() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestOpenFile(t *testing.T) {
+	type args struct {
+		filePath string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *os.File
+		wantErr bool
+	}{
+		{
+			name: "valid file",
+			args: args{
+				filePath: "testdata/test.pdf",
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := OpenFile(tt.args.filePath)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("OpenFile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("OpenFile() = %v, want %v", got, tt.want)
 			}
 		})
 	}

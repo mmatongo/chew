@@ -7,9 +7,11 @@ import (
 	"testing"
 
 	"github.com/mmatongo/chew/v1/internal/common"
+	"github.com/mmatongo/chew/v1/internal/utils"
 )
 
 func TestProcessText(t *testing.T) {
+	file, _ := utils.OpenFile("testdata/invalid.html")
 	type args struct {
 		r   io.Reader
 		url string
@@ -40,6 +42,15 @@ func TestProcessText(t *testing.T) {
 			},
 			want:    nil,
 			wantErr: false,
+		},
+		{
+			name: "invalid",
+			args: args{
+				r:   file,
+				url: "https://example.com",
+			},
+			want:    nil,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
