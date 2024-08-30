@@ -31,7 +31,7 @@ func GetFileExtension(rawURL string) (string, error) {
 
 	ext := filepath.Ext(pathToCheck)
 	if ext == "" {
-		return "", fmt.Errorf("no file extension found in '%s'", rawURL)
+		return "", fmt.Errorf("no file extension found in %q", rawURL)
 	}
 
 	return ext, nil
