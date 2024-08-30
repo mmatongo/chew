@@ -53,9 +53,11 @@ func processEpubContent(r io.Reader) ([]common.Chunk, error) {
 			return nil, fmt.Errorf("failed to extract text from %s: %w", item.HREF, err)
 		}
 
-		if text = strings.TrimSpace(text); text != "" {
-			chunks = append(chunks, common.Chunk{Content: text, Source: item.HREF})
+		text := strings.TrimSpace(text)
+		if text == "" {
+			continue
 		}
+		chunks = append(chunks, common.Chunk{Content: text, Source: item.HREF})
 	}
 
 	return chunks, nil
