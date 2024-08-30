@@ -1,9 +1,9 @@
 package document
 
 import (
+	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -12,23 +12,15 @@ import (
 )
 
 func processEpubContent(r io.Reader) ([]common.Chunk, error) {
-	tempFile, err := os.CreateTemp("", "epub-*.epub")
+	content, err := io.ReadAll(r)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temp file: %w", err)
-	}
-	defer os.Remove(tempFile.Name())
-	defer tempFile.Close()
-
-	_, err = io.Copy(tempFile, r)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write to temp file: %w", err)
+		return nil, fmt.Errorf("failed to read EPUB content: %w", err)
 	}
 
-	reader, err := epub.OpenReader(tempFile.Name())
+	reader, err := epub.NewReader(bytes.NewReader(content), int64(len(content)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to open EPUB: %w", err)
+		return nil, fmt.Errorf("failed to create EPUB reader: %w", err)
 	}
-	defer reader.Close()
 
 	if len(reader.Rootfiles) == 0 {
 		return nil, fmt.Errorf("EPUB contains no content")
