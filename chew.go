@@ -155,8 +155,7 @@ func processURL(url string, ctxs ...context.Context) ([]common.Chunk, error) {
 	}
 
 	// if the url is a file path we can just open the file and process it directly
-	if strings.HasPrefix(url, "file://") {
-		filePath, _ := strings.CutPrefix(url, "file://")
+	if filePath, found := strings.CutPrefix(url, "file://"); found {
 		file, err := utils.OpenFile(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("opening file: %w", err)
