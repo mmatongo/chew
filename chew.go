@@ -80,7 +80,7 @@ func getProcessor(contentType, url string) (func(io.Reader, string) ([]common.Ch
 
 	ext, err := utils.GetFileExtension(url)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't get file extension from url: %s", err)
+		return nil, fmt.Errorf("couldn't get file extension from url %s: %s", url, err)
 	}
 
 	if proc, ok := validExtensions[ext]; ok {
@@ -156,7 +156,7 @@ func processURL(url string, ctxs ...context.Context) ([]common.Chunk, error) {
 
 	// if the url is a file path we can just open the file and process it directly
 	if strings.HasPrefix(url, "file://") {
-		filePath := strings.TrimPrefix(url, "file://")
+		filePath, _ := strings.CutPrefix(url, "file://")
 		file, err := utils.OpenFile(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("opening file: %w", err)
