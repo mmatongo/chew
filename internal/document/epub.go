@@ -53,7 +53,7 @@ func processEpubContent(r io.Reader) ([]common.Chunk, error) {
 			return nil, fmt.Errorf("failed to extract text from %s: %w", item.HREF, err)
 		}
 
-		text := strings.TrimSpace(text)
+		text = strings.TrimSpace(text)
 		if text == "" {
 			continue
 		}
@@ -90,7 +90,7 @@ func extractTextFromHTML(r io.Reader) (string, error) {
 		however this is a very naive approach and might not work well
 		for all HTML documents unfortunately.
 		This is a known issue and I'm working on a better solution.
-		see: https://github.com/mmatongo/chew/blob/master/internal/text/html.go
+		see: https://github.com/mmatongo/chew/issues/22
 
 		TODO: Allow users to specify a CSS selector to extract text from
 	*/
