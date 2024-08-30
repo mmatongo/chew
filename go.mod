@@ -9,6 +9,7 @@ require (
 	github.com/go-audio/wav v1.1.0
 	github.com/ledongthuc/pdf v0.0.0-20240201131950-da5b75280b06
 	github.com/mewkiz/flac v1.0.11
+	github.com/taylorskalyo/goreader v0.0.0-20230626212555-e7f5644f8115
 	google.golang.org/api v0.187.0
 )
 

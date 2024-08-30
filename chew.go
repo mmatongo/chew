@@ -23,6 +23,7 @@ const (
 	contentTypeJSON     = "application/json"
 	contentTypeYAML     = "application/x-yaml"
 	contentTypeMarkdown = "text/markdown"
+	contentTypeEPUB     = "application/epub+zip"
 	contentTypeDocx     = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 	contentTypePptx     = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 )
@@ -37,6 +38,7 @@ var contentTypeProcessors = map[string]func(io.Reader, string) ([]common.Chunk, 
 	contentTypeDocx:     document.ProcessDocx,
 	contentTypePptx:     document.ProcessPptx,
 	contentTypePDF:      document.ProcessPDF,
+	contentTypeEPUB:     document.ProcessEpub,
 }
 
 /*
@@ -62,6 +64,7 @@ var validExtensions = map[string]func(io.Reader, string) ([]common.Chunk, error)
 	".json": text.ProcessJSON,
 	".yaml": text.ProcessYAML,
 	".html": text.ProcessHTML,
+	".epub": document.ProcessEpub,
 }
 
 /*
@@ -75,7 +78,7 @@ func getProcessor(contentType, url string) (func(io.Reader, string) ([]common.Ch
 		}
 	}
 
-	ext, err := utils.GetFileExtensionFromUrl(url)
+	ext, err := utils.GetFileExtension(url)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get file extension from url: %s", err)
 	}
@@ -149,6 +152,24 @@ func processURL(url string, ctxs ...context.Context) ([]common.Chunk, error) {
 	ctx := context.Background()
 	if len(ctxs) > 0 {
 		ctx = ctxs[0]
+	}
+
+	// if the url is a file path we can just open the file and process it directly
+	if strings.HasPrefix(url, "file://") {
+		filePath := strings.TrimPrefix(url, "file://")
+		file, err := utils.OpenFile(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("opening file: %w", err)
+		}
+		defer file.Close()
+
+		ext, _ := utils.GetFileExtension(filePath)
+		proc, ok := validExtensions[ext]
+		if !ok {
+			return nil, fmt.Errorf("unsupported file extension: %s", ext)
+		}
+
+		return proc(file, url)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
