@@ -3,23 +3,42 @@ package utils
 import (
 	"archive/zip"
 	"encoding/xml"
-	"errors"
+	"fmt"
 	"io"
+	"mime"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
 
-func GetFileExtensionFromUrl(rawUrl string) (string, error) {
-	u, err := url.Parse(rawUrl)
+func GetFileExtension(rawURL string) (string, error) {
+	u, err := url.Parse(rawURL)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("invalid URL or file path: %w", err)
 	}
-	pos := strings.LastIndex(u.Path, ".")
-	if pos == -1 {
-		return "", errors.New("couldn't find a period to indicate a file extension")
+
+	var pathToCheck string
+	if u.Scheme == "" || u.Scheme == "file" {
+		pathToCheck = rawURL
+		if u.Scheme == "file" {
+			pathToCheck = u.Path
+		}
+	} else {
+		pathToCheck = u.Path
 	}
-	return u.Path[pos:len(u.Path)], nil
+
+	ext := filepath.Ext(pathToCheck)
+	if ext == "" {
+		return "", fmt.Errorf("no file extension found in %q", rawURL)
+	}
+
+	return ext, nil
+}
+
+func GetFileContentType(file *os.File) string {
+	return mime.TypeByExtension(filepath.Ext(file.Name()))
 }
 
 func ExtractTextFromXML(file *zip.File) ([]string, error) {
@@ -130,4 +149,9 @@ func RemoveMarkdownSyntax(text string) string {
 	).Replace(text)
 
 	return strings.TrimSpace(text)
+}
+
+func OpenFile(filePath string) (*os.File, error) {
+	filePath = strings.TrimPrefix(filePath, "file://")
+	return os.Open(filePath)
 }

@@ -23,6 +23,7 @@ const (
 	contentTypeJSON     = "application/json"
 	contentTypeYAML     = "application/x-yaml"
 	contentTypeMarkdown = "text/markdown"
+	contentTypeEPUB     = "application/epub+zip"
 	contentTypeDocx     = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 	contentTypePptx     = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 )
@@ -37,6 +38,7 @@ var contentTypeProcessors = map[string]func(io.Reader, string) ([]common.Chunk, 
 	contentTypeDocx:     document.ProcessDocx,
 	contentTypePptx:     document.ProcessPptx,
 	contentTypePDF:      document.ProcessPDF,
+	contentTypeEPUB:     document.ProcessEpub,
 }
 
 /*
@@ -62,6 +64,7 @@ var validExtensions = map[string]func(io.Reader, string) ([]common.Chunk, error)
 	".json": text.ProcessJSON,
 	".yaml": text.ProcessYAML,
 	".html": text.ProcessHTML,
+	".epub": document.ProcessEpub,
 }
 
 /*
@@ -75,9 +78,9 @@ func getProcessor(contentType, url string) (func(io.Reader, string) ([]common.Ch
 		}
 	}
 
-	ext, err := utils.GetFileExtensionFromUrl(url)
+	ext, err := utils.GetFileExtension(url)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't get file extension from url: %s", err)
+		return nil, fmt.Errorf("couldn't get file extension from url %s: %s", url, err)
 	}
 
 	if proc, ok := validExtensions[ext]; ok {
@@ -149,6 +152,33 @@ func processURL(url string, ctxs ...context.Context) ([]common.Chunk, error) {
 	ctx := context.Background()
 	if len(ctxs) > 0 {
 		ctx = ctxs[0]
+	}
+
+	// if the url is a file path we can just open the file and process it directly
+	if filePath, found := strings.CutPrefix(url, "file://"); found {
+		file, err := utils.OpenFile(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("opening file: %w", err)
+		}
+		defer file.Close()
+
+		ext, _ := utils.GetFileExtension(filePath)
+		/*
+			Will leave this in here for now, but I think it's better to just check the file extension
+			instead of the content type returned.
+		*/
+		contentType := utils.GetFileContentType(file)
+
+		proc, err := getProcessor(contentType, filePath)
+		if err != nil {
+			proc, ok := validExtensions[ext]
+			if !ok {
+				return nil, fmt.Errorf("unsupported file type: %s", ext)
+			}
+			return proc(file, url)
+		}
+
+		return proc(file, url)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
