@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"mime"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -35,6 +36,11 @@ func GetFileExtension(rawURL string) (string, error) {
 
 	return ext, nil
 }
+
+func GetFileContentType(file *os.File) string {
+	return mime.TypeByExtension(filepath.Ext(file.Name()))
+}
+
 func ExtractTextFromXML(file *zip.File) ([]string, error) {
 	fileReader, err := file.Open()
 	if err != nil {

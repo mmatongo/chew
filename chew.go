@@ -164,9 +164,19 @@ func processURL(url string, ctxs ...context.Context) ([]common.Chunk, error) {
 		defer file.Close()
 
 		ext, _ := utils.GetFileExtension(filePath)
-		proc, ok := validExtensions[ext]
-		if !ok {
-			return nil, fmt.Errorf("unsupported file extension: %s", ext)
+		/*
+			Will leave this in here for now, but I think it's better to just check the file extension
+			instead of the content type returned.
+		*/
+		contentType := utils.GetFileContentType(file)
+
+		proc, err := getProcessor(contentType, filePath)
+		if err != nil {
+			proc, ok := validExtensions[ext]
+			if !ok {
+				return nil, fmt.Errorf("unsupported file type: %s", ext)
+			}
+			return proc(file, url)
 		}
 
 		return proc(file, url)
