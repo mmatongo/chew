@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -257,6 +258,41 @@ func TestOpenFile(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("OpenFile() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetFileContentType(t *testing.T) {
+	tempDir := t.TempDir()
+	testHTMLPath := filepath.Join(tempDir, "test.html")
+
+	err := os.WriteFile(testHTMLPath, []byte("html content"), 0644)
+	if err != nil {
+		t.Fatalf("failed to create test html file: %v", err)
+	}
+
+	filepath, _ := OpenFile(testHTMLPath)
+	type args struct {
+		file *os.File
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Test 1",
+			args: args{
+				file: filepath,
+			},
+			want: "text/html; charset=utf-8",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetFileContentType(tt.args.file); got != tt.want {
+				t.Errorf("GetFileContentType() = %v, want %v", got, tt.want)
 			}
 		})
 	}

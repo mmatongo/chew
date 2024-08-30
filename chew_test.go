@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -56,10 +58,32 @@ func Test_processURL(t *testing.T) {
 	}
 
 	contentTypeProcessors = map[string]func(io.Reader, string) ([]common.Chunk, error){
-		"text/html": mockProcessor,
+		"text/html":  mockProcessor,
+		"text/plain": mockProcessor,
 	}
 	validExtensions = map[string]func(io.Reader, string) ([]common.Chunk, error){
-		"html": mockProcessor,
+		".html": mockProcessor,
+		".txt":  mockProcessor,
+	}
+
+	tempDir := t.TempDir()
+	testHTMLPath := filepath.Join(tempDir, "test.html")
+	testTXTPath := filepath.Join(tempDir, "test.txt")
+	testUnsupportedPath := filepath.Join(tempDir, "test.unsupported")
+
+	err := os.WriteFile(testHTMLPath, []byte("html content"), 0644)
+	if err != nil {
+		t.Fatalf("failed to create test html file: %v", err)
+	}
+
+	err = os.WriteFile(testTXTPath, []byte("text content"), 0644)
+	if err != nil {
+		t.Fatalf("failed to create test text file: %v", err)
+	}
+
+	err = os.WriteFile(testUnsupportedPath, []byte("unsupported content"), 0644)
+	if err != nil {
+		t.Fatalf("failed to create test unsupported file: %v", err)
 	}
 
 	tests := []struct {
@@ -69,10 +93,28 @@ func Test_processURL(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "Valid URL",
+			name:    "success",
 			url:     "https://example.com/page.html",
 			want:    []common.Chunk{{Content: "Test content", Source: "https://example.com/page.html"}},
 			wantErr: false,
+		},
+		{
+			name:    "success html",
+			url:     "file://" + testHTMLPath,
+			want:    []common.Chunk{{Content: "html content", Source: "file://" + testHTMLPath}},
+			wantErr: false,
+		},
+		{
+			name:    "success txt",
+			url:     "file://" + testTXTPath,
+			want:    []common.Chunk{{Content: "text content", Source: "file://" + testTXTPath}},
+			wantErr: false,
+		},
+		{
+			name:    "unsupported file type",
+			url:     "file://" + testUnsupportedPath,
+			want:    nil,
+			wantErr: true,
 		},
 	}
 
