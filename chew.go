@@ -1,3 +1,35 @@
+/*
+Package chew provides a simple way to process URLs and files. It allows you to process a list of URLs
+and files and returns the content of the URLs and files as a list of Chunks. It also provides a way to
+transcribe audio files using the Google Cloud Speech-to-Text API or the OpenAI Whisper API.
+
+The library respects robots.txt files and crawl delays, and allows you to set a custom http.Client for making requests.
+
+Note on Responsible Usage:
+
+This library is designed for processing data from both local files and web sources. Users should be aware of the following considerations:
+
+1. Web Scraping:
+  - When scraping websites, ensure compliance with the target website's terms of service and robots.txt rules.
+  - Respect rate limits and crawl delays to avoid overwhelming target servers.
+  - Be aware that web scraping may be subject to legal restrictions in some jurisdictions.
+
+2. File Processing:
+  - Exercise caution when processing files from untrusted sources.
+  - Ensure you have appropriate permissions to access and process the files.
+  - Be mindful of potential sensitive information in processed files and handle it securely.
+
+3. Data Handling:
+  - Properly secure and manage any data extracted or processed using this library, especially if it contains personal or sensitive information.
+  - Comply with relevant data protection regulations (e.g., GDPR, CCPA) when handling personal data.
+
+4. System Resource Usage:
+  - Be aware that processing large files or numerous web pages can be resource-intensive. Monitor and manage system resources accordingly.
+
+5. Have Fun
+
+Users of this library are responsible for ensuring their usage complies with applicable laws, regulations, and ethical considerations in their jurisdiction and context of use.
+*/
 package chew
 
 import (
@@ -63,6 +95,21 @@ var (
 
 /*
 NewConfig allows you to set the configuration options for URL processing. It takes a Config struct.
+
+Usage:
+
+	config := chew.Config{
+		UserAgent:       "MyBot/1.0 (+https://example.com/bot)",
+		RetryLimit:      3,
+		RetryDelay:      5 * time.Second,
+		CrawlDelay:      10 * time.Second,
+		ProxyList:       []string{"http://proxy1.com", "http://proxy2.com"},
+		RateLimit:       rate.Every(2 * time.Second),
+		RateBurst:       3,
+		IgnoreRobotsTxt: false,
+	}
+
+	chew.NewConfig(config)
 */
 func NewConfig(config common.Config) {
 	userAgent = config.UserAgent
@@ -88,21 +135,65 @@ func init() {
 }
 
 /*
-Transcribe uses the Google Cloud Speech-to-Text API to transcribe an audio file. It takes
-a context, the filename of the audio file to transcribe, and a TranscribeOptions struct which
-contains the Google Cloud credentials, the GCS bucket to upload the audio file to, and the language code
-to use for transcription. It returns the transcript of the audio file as a string and an error if the
-transcription fails.
+Transcribe is a function that transcribes audio files using either the Google Cloud Speech-to-Text API
+or the Whisper API. It handles uploading the audio file to Google Cloud Storage if necessary,
+manages the transcription process, and returns the resulting transcript.
+
+For detailed usage instructions, see the TranscribeOptions struct documentation.
 */
 var Transcribe = transcribe.Transcribe
 
+/*
+The TranscribeOptions struct contains the options for transcribing an audio file. It allows the user
+to specify the Google Cloud credentials, the GCS bucket to upload the audio file to, the language code
+to use for transcription, a potion to enable diarization including the min and max speakers and
+an option to clean up the audio file from GCS after transcription is complete.
+
+And also, it allows the user to specify whether to use the Whisper API for transcription, and if so,
+the API key, model, and prompt to use.
+
+Usage:
+
+	opts := chew.TranscribeOptions{
+		CredentialsJSON:   []byte("..."),
+		Bucket:            "my-bucket",
+		LanguageCode:      "en-US",
+		EnableDiarization: true,
+		MinSpeakers:       2,
+		MaxSpeakers:       4,
+		CleanupOnComplete: true,
+		UseWhisper:        true, // You can only have one of these enabled, by default it uses the Google Cloud Speech-to-Text API
+		WhisperAPIKey:     "my-whisper-api-key",
+		WhisperModel:      "whisper-1",
+	}
+*/
 type TranscribeOptions = transcribe.TranscribeOptions
 
 /*
-The Config struct contains the configuration options for the library. You can specify the
-user agent to use for requests, number of retries to attempt in case of failure, delay between retries,
-delay between requests, a list of proxies to use for requests, a rate limit for requests, and an option to
-ignore the robots.txt file.
+Config struct contains the configuration options for URL processing.
+
+Fields:
+  - UserAgent: The user agent string to use for requests (e.g., "MyBot/1.0 (+https://example.com/bot)")
+  - RetryLimit: Number of retries to attempt in case of failure (e.g., 3)
+  - RetryDelay: Delay between retries (e.g., 5 * time.Second)
+  - CrawlDelay: Delay between requests to the same domain (e.g., 10 * time.Second)
+  - ProxyList: List of proxy URLs to use for requests (e.g., []string{"http://proxy1.com", "http://proxy2.com"})
+  - RateLimit: Rate limit for requests (e.g., rate.Every(2 * time.Second))
+  - RateBurst: Maximum burst size for rate limiting (e.g., 3)
+  - IgnoreRobotsTxt: Whether to ignore robots.txt rules (e.g., false)
+
+Usage:
+
+	config := chew.Config{
+	    UserAgent:       "MyBot/1.0 (+https://example.com/bot)",
+	    RetryLimit:      3,
+	    RetryDelay:      5 * time.Second,
+	    CrawlDelay:      10 * time.Second,
+	    ProxyList:       []string{"http://proxy1.com", "http://proxy2.com"},
+	    RateLimit:       rate.Every(2 * time.Second),
+	    RateBurst:       3,
+	    IgnoreRobotsTxt: false,
+	}
 */
 type Config = common.Config
 
@@ -130,6 +221,14 @@ SetHTTPClient allows you to set a custom http.Client to use for making requests.
 
 This would be useful in the event custom logging, tracing, or other functionality is
 required for the requests made by the library.
+
+Usage:
+
+	client := &http.Client{
+		Transport: loggingRoundTripper{wrapped: http.DefaultTransport},
+	}
+
+	chew.SetHTTPClient(client)
 */
 func SetHTTPClient(client *http.Client) {
 	httpClient = client
@@ -164,6 +263,19 @@ Process takes a list of URLs and returns a list of Chunks
 The slice of strings to be processed can be URLs or file paths
 The context is optional and can be used to cancel the processing
 of the URLs after a certain amount of time
+
+This function is safe for concurrent use.
+
+Usage:
+
+	chunks, err := chew.Process([]string{"https://example.com", "file://path/to/file.txt"})
+	if err != nil {
+		log.Fatalf("Error processing URLs: %v", err)
+	}
+
+	for _, chunk := range chunks {
+		log.Printf("Chunk: %s\n Source: %s\n", chunk.Content, chunk.Source)
+	}
 */
 func Process(urls []string, ctxs ...context.Context) ([]common.Chunk, error) {
 	ctx := context.Background()
@@ -237,6 +349,10 @@ func Process(urls []string, ctxs ...context.Context) ([]common.Chunk, error) {
 	return result, nil
 }
 
+/*
+processURL handles the actual processing of a single URL or file
+file paths are processed directly while URLs are fetched and processed
+*/
 func processURL(url string, ctxs ...context.Context) ([]common.Chunk, error) {
 	ctx := context.Background()
 	if len(ctxs) > 0 {
@@ -349,6 +465,7 @@ func getRobotsTxtInfo(urlStr string) (bool, time.Duration, error) {
 	return allowed, crawlDelay, nil
 }
 
+// respectCrawlDelay ensures that subsequent requests to the same domain respect the specified crawl delay.
 func respectCrawlDelay(urlStr string, delay time.Duration) error {
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
