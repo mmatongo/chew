@@ -10,6 +10,8 @@ require (
 	github.com/ledongthuc/pdf v0.0.0-20240201131950-da5b75280b06
 	github.com/mewkiz/flac v1.0.11
 	github.com/taylorskalyo/goreader v0.0.0-20230626212555-e7f5644f8115
+	github.com/temoto/robotstxt v1.1.2
+	golang.org/x/time v0.6.0
 	google.golang.org/api v0.187.0
 )
 
@@ -45,7 +47,6 @@ require (
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.22.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
-	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/genproto v0.0.0-20240624140628-dc46fd24d27d // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240617180043-68d350f18fd4 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240624140628-dc46fd24d27d // indirect
