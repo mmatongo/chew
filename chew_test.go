@@ -44,18 +44,17 @@ func Test_processURL(t *testing.T) {
 		validExtensions = originalValidExtensions
 	}()
 
-	mockTransport := &mockTransport{
-		response: &http.Response{
-			StatusCode: 200,
-			Body:       io.NopCloser(strings.NewReader("Test content")),
-			Header:     http.Header{"Content-Type": []string{"text/html"}},
+	mockClient := &http.Client{
+		Transport: &mockTransport{
+			response: &http.Response{
+				StatusCode: 200,
+				Body:       io.NopCloser(strings.NewReader("Test content")),
+				Header:     http.Header{"Content-Type": []string{"text/html"}},
+			},
 		},
-		err: nil,
 	}
-
-	http.DefaultClient = &http.Client{
-		Transport: mockTransport,
-	}
+	SetHTTPClient(mockClient)
+	defer SetHTTPClient(nil)
 
 	contentTypeProcessors = map[string]func(io.Reader, string) ([]common.Chunk, error){
 		"text/html":  mockProcessor,
