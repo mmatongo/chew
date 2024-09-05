@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -205,6 +206,9 @@ func Test_getProcessor(t *testing.T) {
 func TestProcess(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/robots.txt":
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write([]byte("User-agent: *\nDisallow: /disallowed\nCrawl-delay: 1"))
 		case "/text":
 			w.Header().Set("Content-Type", "text/plain")
 			w.Write([]byte("A plain text file."))
@@ -214,6 +218,9 @@ func TestProcess(t *testing.T) {
 		case "/markdown":
 			w.Header().Set("Content-Type", "text/plain")
 			w.Write([]byte("# A Markdown file"))
+		case "/disallowed":
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write([]byte("This page is disallowed by robots.txt"))
 		}
 	}))
 	defer server.Close()
@@ -223,10 +230,11 @@ func TestProcess(t *testing.T) {
 		ctxs []context.Context
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    []common.Chunk
-		wantErr bool
+		name            string
+		args            args
+		want            []common.Chunk
+		wantErr         bool
+		ignoreRobotsTxt bool
 	}{
 		{
 			name: "plain text",
@@ -290,17 +298,137 @@ func TestProcess(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
+		{
+			name: "with more than one context",
+			args: args{
+				urls: []string{server.URL + "/text"},
+				ctxs: []context.Context{context.Background(), context.Background()},
+			},
+			want:    []common.Chunk{{Content: "A plain text file.", Source: server.URL + "/text"}},
+			wantErr: false,
+		},
+		{
+			name: "respects robots.txt",
+			args: args{
+				urls: []string{server.URL + "/disallowed"},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "ignores robots.txt when configured",
+			args: args{
+				urls: []string{server.URL + "/disallowed"},
+			},
+			want: []common.Chunk{
+				{Content: "This page is disallowed by robots.txt", Source: server.URL + "/disallowed"},
+			},
+			wantErr:         false,
+			ignoreRobotsTxt: true,
+		},
+		{
+			name: "respects crawl delay",
+			args: args{
+				urls: []string{server.URL + "/text", server.URL + "/html"},
+			},
+			want: []common.Chunk{
+				{Content: "A plain text file.", Source: server.URL + "/text"},
+				{Content: "An HTML file.", Source: server.URL + "/html"},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			oldState := ignoreRobotsTxt
+			ignoreRobotsTxt = tt.ignoreRobotsTxt
+			defer func() { ignoreRobotsTxt = oldState }()
+
+			start := time.Now()
 			got, err := Process(tt.args.urls, tt.args.ctxs...)
+			duration := time.Since(start)
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Process() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Process() = %v, want %v", got, tt.want)
+			}
+
+			if tt.name == "respects crawl delay" && duration < time.Second {
+				t.Errorf("Crawl delay not respected. Duration: %v", duration)
+			}
+		})
+	}
+}
+
+func Test_getNextProxy(t *testing.T) {
+	tests := []struct {
+		name string
+		want *url.URL
+	}{
+		{
+			name: "no proxies",
+			want: nil,
+		},
+		{
+			name: "single proxy",
+			want: &url.URL{Scheme: "http", Host: "localhost:8080"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.name == "single proxy" {
+				NewConfig(Config{
+					ProxyList: []string{"http://localhost:8080"},
+				})
+			}
+			if got := getNextProxy(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getNextProxy() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRespectCrawlDelay(t *testing.T) {
+	tests := []struct {
+		name     string
+		url      string
+		delay    time.Duration
+		wantWait bool
+	}{
+		{
+			name:     "first access",
+			url:      "https://example.com",
+			delay:    time.Second,
+			wantWait: false,
+		},
+		{
+			name:     "second access",
+			url:      "https://example.com",
+			delay:    time.Second,
+			wantWait: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			start := time.Now()
+			err := respectCrawlDelay(tt.url, tt.delay)
+			duration := time.Since(start)
+
+			if err != nil {
+				t.Errorf("respectCrawlDelay() error = %v", err)
+				return
+			}
+
+			if tt.wantWait && duration < tt.delay {
+				t.Errorf("respectCrawlDelay() didn't wait long enough. Duration: %v, Expected: %v", duration, tt.delay)
+			}
+			if !tt.wantWait && duration >= tt.delay {
+				t.Errorf("respectCrawlDelay() waited unnecessarily. Duration: %v", duration)
 			}
 		})
 	}
