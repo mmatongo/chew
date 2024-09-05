@@ -116,6 +116,12 @@ func Test_processURL(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
+		{
+			name:    "non-existent file",
+			url:     "file:///non-existent.md",
+			want:    nil,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -221,6 +227,9 @@ func TestProcess(t *testing.T) {
 		case "/disallowed":
 			w.Header().Set("Content-Type", "text/plain")
 			w.Write([]byte("This page is disallowed by robots.txt"))
+		case "/rate-limited":
+			time.Sleep(2 * time.Second)
+			w.Write([]byte("Rate limited content"))
 		}
 	}))
 	defer server.Close()
@@ -234,6 +243,7 @@ func TestProcess(t *testing.T) {
 		args            args
 		want            []common.Chunk
 		wantErr         bool
+		expectedErrText string
 		ignoreRobotsTxt bool
 	}{
 		{
@@ -327,6 +337,15 @@ func TestProcess(t *testing.T) {
 			ignoreRobotsTxt: true,
 		},
 		{
+			name: "robots.txt disallowed",
+			args: args{
+				urls: []string{server.URL + "/disallowed"},
+			},
+			want:            nil,
+			wantErr:         true,
+			expectedErrText: "access to",
+		},
+		{
 			name: "respects crawl delay",
 			args: args{
 				urls: []string{server.URL + "/text", server.URL + "/html"},
@@ -336,6 +355,34 @@ func TestProcess(t *testing.T) {
 				{Content: "An HTML file.", Source: server.URL + "/html"},
 			},
 			wantErr: false,
+		},
+		{
+			name: "rate limiting error",
+			args: args{
+				urls: []string{server.URL + "/rate-limited"},
+				ctxs: []context.Context{func() context.Context {
+					ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+					defer cancel()
+					return ctx
+				}()},
+			},
+			want:            nil,
+			wantErr:         true,
+			expectedErrText: "rate limiting for",
+		},
+		{
+			name: "crawl delay respect error",
+			args: args{
+				urls: []string{server.URL + "/text", server.URL + "/text"},
+				ctxs: []context.Context{func() context.Context {
+					ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+					defer cancel()
+					return ctx
+				}()},
+			},
+			want:            nil,
+			wantErr:         true,
+			expectedErrText: "respecting crawl delay for",
 		},
 	}
 
