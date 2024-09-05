@@ -234,17 +234,27 @@ func TestProcess(t *testing.T) {
 	}))
 	defer server.Close()
 
+	containsChunk := func(chunks []common.Chunk, chunk common.Chunk) bool {
+		for _, c := range chunks {
+			if c.Content == chunk.Content && c.Source == chunk.Source {
+				return true
+			}
+		}
+		return false
+	}
+
 	type args struct {
 		urls []string
 		ctxs []context.Context
 	}
 	tests := []struct {
-		name            string
-		args            args
-		want            []common.Chunk
-		wantErr         bool
-		expectedErrText string
-		ignoreRobotsTxt bool
+		name             string
+		args             args
+		want             []common.Chunk
+		wantErr          bool
+		expectedErrText  string
+		ignoreRobotsTxt  bool
+		orderIndependent bool
 	}{
 		{
 			name: "plain text",
@@ -285,7 +295,8 @@ func TestProcess(t *testing.T) {
 				{Content: "An HTML file.", Source: server.URL + "/html"},
 				{Content: "A plain text file.", Source: server.URL + "/text"},
 			},
-			wantErr: false,
+			wantErr:          false,
+			orderIndependent: true,
 		},
 		{
 			name: "invalid URL",
@@ -354,7 +365,8 @@ func TestProcess(t *testing.T) {
 				{Content: "A plain text file.", Source: server.URL + "/text"},
 				{Content: "An HTML file.", Source: server.URL + "/html"},
 			},
-			wantErr: false,
+			wantErr:          false,
+			orderIndependent: true,
 		},
 		{
 			name: "rate limiting error",
@@ -400,8 +412,20 @@ func TestProcess(t *testing.T) {
 				t.Errorf("Process() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Process() = %v, want %v", got, tt.want)
+			if tt.orderIndependent {
+				if len(got) != len(tt.want) {
+					t.Errorf("Process() returned %d chunks, want %d", len(got), len(tt.want))
+				} else {
+					for _, wantChunk := range tt.want {
+						if !containsChunk(got, wantChunk) {
+							t.Errorf("Process() result does not contain expected chunk: %v", wantChunk)
+						}
+					}
+				}
+			} else {
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("Process() = %v, want %v", got, tt.want)
+				}
 			}
 
 			if tt.name == "respects crawl delay" && duration < time.Second {
