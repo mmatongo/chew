@@ -272,8 +272,8 @@ func TestProcess(t *testing.T) {
 				urls: []string{server.URL + "/text", server.URL + "/html"},
 			},
 			want: []common.Chunk{
-				{Content: "A plain text file.", Source: server.URL + "/text"},
 				{Content: "An HTML file.", Source: server.URL + "/html"},
+				{Content: "A plain text file.", Source: server.URL + "/text"},
 			},
 			wantErr: false,
 		},
