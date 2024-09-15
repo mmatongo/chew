@@ -2,8 +2,6 @@ package common
 
 import (
 	"time"
-
-	"golang.org/x/time/rate"
 )
 
 type TranscribeOptions struct {
@@ -26,7 +24,7 @@ type Config struct {
 	RetryDelay      time.Duration
 	CrawlDelay      time.Duration
 	ProxyList       []string
-	RateLimit       rate.Limit
+	RateLimit       time.Duration
 	RateBurst       int
 	IgnoreRobotsTxt bool
 }
