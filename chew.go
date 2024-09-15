@@ -77,21 +77,25 @@ var contentTypeProcessors = map[string]func(io.Reader, string) ([]common.Chunk, 
 	contentTypeEPUB:     document.ProcessEpub,
 }
 
-var (
-	rateLimiter       *rate.Limiter
-	robotsCache       = make(map[string]*robotstxt.RobotsData)
-	robotsMu          sync.RWMutex
-	userAgent         = "Chew/1.0 (+https://github.com/mmatongo/chew)"
-	lastAccessTimes   = make(map[string]time.Time)
-	lastAccessMu      sync.Mutex
-	retryLimit        = 3
-	retryDelay        = 5 * time.Second
-	crawlDelay        = 10 * time.Second
-	proxyList         []string
-	currentProxyIndex int
-	proxyMu           sync.Mutex
-	ignoreRobotsTxt   bool
-)
+type Chew struct {
+	config       common.Config
+	httpClient   *http.Client
+	rateLimiter  RateLimiter
+	robotsCache  map[string]*robotstxt.RobotsData
+	robotsMu     sync.RWMutex
+	lastAccess   map[string]time.Time
+	lastAccessMu sync.Mutex
+	proxyIndex   int
+	proxyMu      sync.Mutex
+}
+
+type RateLimiter interface {
+	Wait(context.Context) error
+}
+
+func (c *Chew) SetRateLimiter(rl RateLimiter) {
+	c.rateLimiter = rl
+}
 
 /*
 NewConfig allows you to set the configuration options for URL processing. It takes a Config struct.
@@ -104,34 +108,25 @@ Usage:
 		RetryDelay:      5 * time.Second,
 		CrawlDelay:      10 * time.Second,
 		ProxyList:       []string{"http://proxy1.com", "http://proxy2.com"},
-		RateLimit:       rate.Every(2 * time.Second),
+		RateLimit:       2 * time.Second,
 		RateBurst:       3,
 		IgnoreRobotsTxt: false,
 	}
 
 	chew.NewConfig(config)
 */
-func NewConfig(config common.Config) {
-	userAgent = config.UserAgent
-	retryLimit = config.RetryLimit
-	retryDelay = config.RetryDelay
-	crawlDelay = config.CrawlDelay
-	proxyList = config.ProxyList
-	rateLimiter = rate.NewLimiter(config.RateLimit, config.RateBurst)
-	ignoreRobotsTxt = config.IgnoreRobotsTxt
-}
+func New(config common.Config) *Chew {
+	c := &Chew{
+		config:      config,
+		robotsCache: make(map[string]*robotstxt.RobotsData),
+		lastAccess:  make(map[string]time.Time),
+	}
+	c.initHTTPClient()
 
-func init() {
-	NewConfig(common.Config{
-		UserAgent:       userAgent,
-		RetryLimit:      3,
-		RetryDelay:      5 * time.Second,
-		CrawlDelay:      10 * time.Second,
-		ProxyList:       []string{},
-		RateLimit:       rate.Every(2 * time.Second),
-		RateBurst:       3,
-		IgnoreRobotsTxt: false,
-	})
+	limit := rate.Every(config.RateLimit)
+	c.rateLimiter = rate.NewLimiter(limit, config.RateBurst)
+
+	return c
 }
 
 /*
@@ -146,7 +141,8 @@ var Transcribe = transcribe.Transcribe
 /*
 The TranscribeOptions struct contains the options for transcribing an audio file. It allows the user
 to specify the Google Cloud credentials, the GCS bucket to upload the audio file to, the language code
-to use for transcription, a potion to enable diarization including the min and max speakers and
+to use for transcription, a potion to enable diarization (the process of separating and labeling
+speakers in an audio stream) including the min and max speakers and
 an option to clean up the audio file from GCS after transcription is complete.
 
 And also, it allows the user to specify whether to use the Whisper API for transcription, and if so,
@@ -190,7 +186,7 @@ Usage:
 	    RetryDelay:      5 * time.Second,
 	    CrawlDelay:      10 * time.Second,
 	    ProxyList:       []string{"http://proxy1.com", "http://proxy2.com"},
-	    RateLimit:       rate.Every(2 * time.Second),
+	    RateLimit:       2 * time.Second,
 	    RateBurst:       3,
 	    IgnoreRobotsTxt: false,
 	}
@@ -212,10 +208,6 @@ var validExtensions = map[string]func(io.Reader, string) ([]common.Chunk, error)
 	".epub": document.ProcessEpub,
 }
 
-var httpClient *http.Client
-
-// Obviously, this is not the best way to do this but it's a start
-
 /*
 SetHTTPClient allows you to set a custom http.Client to use for making requests.
 
@@ -230,8 +222,19 @@ Usage:
 
 	chew.SetHTTPClient(client)
 */
-func SetHTTPClient(client *http.Client) {
-	httpClient = client
+
+func (c *Chew) SetHTTPClient(client *http.Client) {
+	c.httpClient = client
+}
+
+func (c *Chew) initHTTPClient() {
+	transport := &http.Transport{
+		Proxy: c.getProxy,
+	}
+	c.httpClient = &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: transport,
+	}
 }
 
 /*
@@ -277,36 +280,28 @@ Usage:
 		log.Printf("Chunk: %s\n Source: %s\n", chunk.Content, chunk.Source)
 	}
 */
-func Process(urls []string, ctxs ...context.Context) ([]common.Chunk, error) {
-	ctx := context.Background()
-	if len(ctxs) > 0 {
-		ctx = ctxs[0]
-	}
-
+func (c *Chew) Process(ctx context.Context, urls []string) ([]common.Chunk, error) {
 	var (
 		result []common.Chunk
-		wg     sync.WaitGroup
 		mu     sync.Mutex
 		errCh  = make(chan error, len(urls))
+		resCh  = make(chan []common.Chunk, len(urls))
 	)
 
 	for _, url := range urls {
-		wg.Add(1)
 		go func(url string) {
-			defer wg.Done()
 			select {
 			case <-ctx.Done():
 				errCh <- ctx.Err()
 				return
 			default:
-				err := rateLimiter.Wait(ctx)
-				if err != nil {
-					errCh <- fmt.Errorf("rate limiting for %s: %w", url, err)
+				if err := c.rateLimiter.Wait(ctx); err != nil {
+					errCh <- fmt.Errorf("rate limit exceeded for %s: %w", url, err)
 					return
 				}
 
-				if !ignoreRobotsTxt {
-					allowed, crawlDelay, err := getRobotsTxtInfo(url)
+				if !c.config.IgnoreRobotsTxt {
+					allowed, crawlDelay, err := c.getRobotsTxtInfo(url)
 					if err != nil {
 						errCh <- fmt.Errorf("checking robots.txt for %s: %w", url, err)
 						return
@@ -315,35 +310,34 @@ func Process(urls []string, ctxs ...context.Context) ([]common.Chunk, error) {
 						errCh <- fmt.Errorf("access to %s is disallowed by robots.txt", url)
 						return
 					}
-					if err := respectCrawlDelay(url, crawlDelay); err != nil {
+					if err := c.respectCrawlDelay(ctx, url, crawlDelay); err != nil {
 						errCh <- fmt.Errorf("respecting crawl delay for %s: %w", url, err)
 						return
 					}
 				}
-				chunks, err := processWithRetry(url, ctx)
+
+				chunks, err := c.processWithRetry(ctx, url)
 				if err != nil {
-					errCh <- fmt.Errorf("processing %s, %w", url, err)
+					errCh <- fmt.Errorf("processing %s: %w", url, err)
 					return
 				}
-				mu.Lock()
-				result = append(result, chunks...)
-				mu.Unlock()
+
+				resCh <- chunks
 			}
 		}(url)
 	}
 
-	go func() {
-		wg.Wait()
-		close(errCh)
-	}()
-
-	select {
-	case err := <-errCh:
-		if err != nil {
+	for i := 0; i < len(urls); i++ {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case err := <-errCh:
 			return nil, err
+		case chunks := <-resCh:
+			mu.Lock()
+			result = append(result, chunks...)
+			mu.Unlock()
 		}
-	case <-ctx.Done():
-		return nil, ctx.Err()
 	}
 
 	return result, nil
@@ -353,12 +347,7 @@ func Process(urls []string, ctxs ...context.Context) ([]common.Chunk, error) {
 processURL handles the actual processing of a single URL or file
 file paths are processed directly while URLs are fetched and processed
 */
-func processURL(url string, ctxs ...context.Context) ([]common.Chunk, error) {
-	ctx := context.Background()
-	if len(ctxs) > 0 {
-		ctx = ctxs[0]
-	}
-
+func (c *Chew) processURL(ctx context.Context, url string) ([]common.Chunk, error) {
 	// if the url is a file path we can just open the file and process it directly
 	if filePath, found := strings.CutPrefix(url, "file://"); found {
 		file, err := utils.OpenFile(filePath)
@@ -391,25 +380,9 @@ func processURL(url string, ctxs ...context.Context) ([]common.Chunk, error) {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
 
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", c.config.UserAgent)
 
-	var client *http.Client
-	if httpClient != nil {
-		client = httpClient
-	} else {
-		transport := http.DefaultTransport
-		if proxyURL := getNextProxy(); proxyURL != nil {
-			transport = &http.Transport{
-				Proxy: http.ProxyURL(proxyURL),
-			}
-		}
-		client = &http.Client{
-			Timeout:   30 * time.Second,
-			Transport: transport,
-		}
-	}
-
-	resp, err := client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("making request: %w", err)
 	}
@@ -425,7 +398,7 @@ func processURL(url string, ctxs ...context.Context) ([]common.Chunk, error) {
 	return processor(resp.Body, url)
 }
 
-func getRobotsTxtInfo(urlStr string) (bool, time.Duration, error) {
+func (c *Chew) getRobotsTxtInfo(urlStr string) (bool, time.Duration, error) {
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
 		return false, 0, err
@@ -433,40 +406,34 @@ func getRobotsTxtInfo(urlStr string) (bool, time.Duration, error) {
 
 	robotsURL := fmt.Sprintf("%s://%s/robots.txt", parsedURL.Scheme, parsedURL.Host)
 
-	robotsMu.RLock()
-	robotsData, exists := robotsCache[robotsURL]
-	robotsMu.RUnlock()
+	c.robotsMu.RLock()
+	robotsData, exists := c.robotsCache[robotsURL]
+	c.robotsMu.RUnlock()
 
-	/*
-		This bit of code makes a lot of very unhealthy assumptions, in an ideal world this
-		would be more straightforward but unfortunately it's not.
-
-		Use this with caution and respect for site owners.
-	*/
 	if !exists {
 		resp, err := http.Get(robotsURL)
 		if err != nil {
-			return true, crawlDelay, nil
+			return true, c.config.CrawlDelay, nil
 		}
 		defer resp.Body.Close()
 
 		robotsData, err = robotstxt.FromResponse(resp)
 		if err != nil {
-			return true, crawlDelay, nil
+			return true, c.config.CrawlDelay, nil
 		}
 
-		robotsMu.Lock()
-		robotsCache[robotsURL] = robotsData
-		robotsMu.Unlock()
+		c.robotsMu.Lock()
+		c.robotsCache[robotsURL] = robotsData
+		c.robotsMu.Unlock()
 	}
 
-	allowed := robotsData.TestAgent(parsedURL.Path, userAgent)
+	allowed := robotsData.TestAgent(parsedURL.Path, c.config.UserAgent)
 
-	return allowed, crawlDelay, nil
+	return allowed, c.config.CrawlDelay, nil
 }
 
 // respectCrawlDelay ensures that subsequent requests to the same domain respect the specified crawl delay.
-func respectCrawlDelay(urlStr string, delay time.Duration) error {
+func (c *Chew) respectCrawlDelay(ctx context.Context, urlStr string, delay time.Duration) error {
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
 		return err
@@ -474,52 +441,68 @@ func respectCrawlDelay(urlStr string, delay time.Duration) error {
 
 	domain := parsedURL.Hostname()
 
-	lastAccessMu.Lock()
-	defer lastAccessMu.Unlock()
-
-	lastAccess, exists := lastAccessTimes[domain]
+	c.lastAccessMu.Lock()
+	lastAccess, exists := c.lastAccess[domain]
 	if exists {
 		timeToWait := time.Until(lastAccess.Add(delay))
 		if timeToWait > 0 {
-			time.Sleep(timeToWait)
+			c.lastAccessMu.Unlock()
+			timer := time.NewTimer(timeToWait)
+			select {
+			case <-timer.C:
+			case <-ctx.Done():
+				timer.Stop()
+				return ctx.Err()
+			}
+			c.lastAccessMu.Lock()
 		}
 	}
 
-	lastAccessTimes[domain] = time.Now()
+	c.lastAccess[domain] = time.Now()
+	c.lastAccessMu.Unlock()
 	return nil
 }
 
-func processWithRetry(url string, ctx context.Context) ([]common.Chunk, error) {
+func (c *Chew) processWithRetry(ctx context.Context, url string) ([]common.Chunk, error) {
 	var (
 		chunks []common.Chunk
 		err    error
 	)
 
-	for i := 0; i < retryLimit; i++ {
-		chunks, err = processURL(url, ctx)
+	for i := 0; i < c.config.RetryLimit; i++ {
+		chunks, err = c.processURL(ctx, url)
 		if err == nil {
 			return chunks, nil
 		}
 
-		if i < retryLimit-1 {
-			time.Sleep(retryDelay)
+		if i < c.config.RetryLimit-1 {
+			c.wait(ctx, c.config.RetryDelay)
 		}
 	}
 
 	return nil, err
 }
 
-func getNextProxy() *url.URL {
-	proxyMu.Lock()
-	defer proxyMu.Unlock()
+func (c *Chew) wait(ctx context.Context, d time.Duration) {
+	select {
+	case <-time.After(d):
+	case <-ctx.Done():
+	}
+}
 
-	if len(proxyList) == 0 {
-		return nil
+func (c *Chew) getProxy(req *http.Request) (*url.URL, error) {
+	c.proxyMu.Lock()
+	defer c.proxyMu.Unlock()
+
+	if len(c.config.ProxyList) == 0 {
+		return nil, nil
 	}
 
-	proxy := proxyList[currentProxyIndex]
-	currentProxyIndex = (currentProxyIndex + 1) % len(proxyList)
+	proxyURL, err := url.Parse(c.config.ProxyList[c.proxyIndex])
+	if err != nil {
+		return nil, err
+	}
 
-	proxyURL, _ := url.Parse(proxy)
-	return proxyURL
+	c.proxyIndex = (c.proxyIndex + 1) % len(c.config.ProxyList)
+	return proxyURL, nil
 }
