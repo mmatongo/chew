@@ -3,7 +3,7 @@ Package chew provides a simple way to process URLs and files. It allows you to p
 and files, and returns the content of the URLs and files as a list of Chunks. It also provides a way to
 transcribe audio files using the Google Cloud Speech-to-Text API or the OpenAI Whisper API.
 
-The library respects robots.txt files and crawl delays, and allows you to set a custom http.Client for making requests.
+The library respects rules defined in robots.txt file and crawl delays, and allows you to set a custom http.Client for making requests.
 
 Note on Responsible Usage:
 
@@ -13,6 +13,8 @@ This library is designed for processing data from both local files and web sourc
   - When scraping websites, ensure compliance with the target website's terms of service and robots.txt rules.
   - Respect rate limits and crawl delays to avoid overwhelming target servers.
   - Be aware that web scraping may be subject to legal restrictions in some jurisdictions.
+  - While the library will attempt to respect robots.txt rules by default, users are responsible for ensuring
+    that their usage complies with the target website's terms of service and legal requirements.
 
 2. File Processing:
   - Exercise caution when processing files from untrusted sources.
@@ -78,15 +80,16 @@ var contentTypeProcessors = map[string]func(io.Reader, string) ([]common.Chunk, 
 }
 
 type Chew struct {
-	config       common.Config
-	httpClient   *http.Client
-	rateLimiter  RateLimiter
-	robotsCache  map[string]*robotstxt.RobotsData
-	robotsMu     sync.RWMutex
-	lastAccess   map[string]time.Time
-	lastAccessMu sync.Mutex
-	proxyIndex   int
-	proxyMu      sync.Mutex
+	config        common.Config
+	httpClient    *http.Client
+	rateLimiter   RateLimiter
+	rateLimiterMu sync.RWMutex
+	robotsCache   map[string]*robotstxt.RobotsData
+	robotsMu      sync.RWMutex
+	lastAccess    map[string]time.Time
+	lastAccessMu  sync.Mutex
+	proxyIndex    int
+	proxyMu       sync.Mutex
 }
 
 type RateLimiter interface {
@@ -94,6 +97,8 @@ type RateLimiter interface {
 }
 
 func (c *Chew) SetRateLimiter(rl RateLimiter) {
+	c.rateLimiterMu.Lock()
+	defer c.rateLimiterMu.Unlock()
 	c.rateLimiter = rl
 }
 
@@ -141,9 +146,9 @@ var Transcribe = transcribe.Transcribe
 /*
 The TranscribeOptions struct contains the options for transcribing an audio file. It allows the user
 to specify the Google Cloud credentials, the GCS bucket to upload the audio file to, the language code
-to use for transcription, a potion to enable diarization (the process of separating and labeling
+to use for transcription, an option to enable diarization (the process of separating and labeling
 speakers in an audio stream) including the min and max speakers and
-an option to clean up the audio file from GCS after transcription is complete.
+an option to clean up the audio file from Google Cloud Speech-to-Text (GCS) after transcription is complete.
 
 And also, it allows the user to specify whether to use the Whisper API for transcription, and if so,
 the API key, model, and prompt to use.
@@ -295,7 +300,11 @@ func (c *Chew) Process(ctx context.Context, urls []string) ([]common.Chunk, erro
 				errCh <- ctx.Err()
 				return
 			default:
-				if err := c.rateLimiter.Wait(ctx); err != nil {
+				c.rateLimiterMu.RLock()
+				rateLimiter := c.rateLimiter
+				c.rateLimiterMu.RUnlock()
+
+				if err := rateLimiter.Wait(ctx); err != nil {
 					errCh <- fmt.Errorf("rate limit exceeded for %s: %w", url, err)
 					return
 				}
@@ -447,11 +456,9 @@ func (c *Chew) respectCrawlDelay(ctx context.Context, urlStr string, delay time.
 		timeToWait := time.Until(lastAccess.Add(delay))
 		if timeToWait > 0 {
 			c.lastAccessMu.Unlock()
-			timer := time.NewTimer(timeToWait)
 			select {
-			case <-timer.C:
+			case <-time.After(timeToWait):
 			case <-ctx.Done():
-				timer.Stop()
 				return ctx.Err()
 			}
 			c.lastAccessMu.Lock()
@@ -469,15 +476,17 @@ func (c *Chew) processWithRetry(ctx context.Context, url string) ([]common.Chunk
 		err    error
 	)
 
-	for i := 0; i < c.config.RetryLimit; i++ {
+	var retries int
+	for {
 		chunks, err = c.processURL(ctx, url)
 		if err == nil {
 			return chunks, nil
 		}
-
-		if i < c.config.RetryLimit-1 {
-			c.wait(ctx, c.config.RetryDelay)
+		if retries > c.config.RetryLimit {
+			break
 		}
+		retries++
+		c.wait(ctx, c.config.RetryDelay)
 	}
 
 	return nil, err
