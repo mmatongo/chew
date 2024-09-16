@@ -1,6 +1,6 @@
 /*
 Package chew provides a simple way to process URLs and files. It allows you to process a list of URLs
-and files and returns the content of the URLs and files as a list of Chunks. It also provides a way to
+and files, and returns the content of the URLs and files as a list of Chunks. It also provides a way to
 transcribe audio files using the Google Cloud Speech-to-Text API or the OpenAI Whisper API.
 
 The library respects robots.txt files and crawl delays, and allows you to set a custom http.Client for making requests.
