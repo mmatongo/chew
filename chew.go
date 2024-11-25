@@ -56,6 +56,8 @@ import (
 const (
 	contentTypeHTML     = "text/html"
 	contentTypeText     = "text/plain"
+	contentTypeXML      = "application/xml"
+	contentTypeTextXML  = "text/xml"
 	contentTypePDF      = "application/pdf"
 	contentTypeCSV      = "text/csv"
 	contentTypeJSON     = "application/json"
@@ -73,6 +75,8 @@ var contentTypeProcessors = map[string]func(io.Reader, string) ([]common.Chunk, 
 	contentTypeYAML:     text.ProcessYAML,
 	contentTypeMarkdown: text.ProcessText,
 	contentTypeText:     text.ProcessText,
+	contentTypeXML:      text.ProcessXML,
+	contentTypeTextXML:  text.ProcessXML,
 	contentTypeDocx:     document.ProcessDocx,
 	contentTypePptx:     document.ProcessPptx,
 	contentTypePDF:      document.ProcessPDF,
