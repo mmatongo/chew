@@ -2,8 +2,6 @@ coverage:
   precision: 2
   round: up
   range: "70...100"
-  notify:
-    require_ci_to_pass: yes
 
 ignore:
   - ".idea"
