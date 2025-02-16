@@ -1,4 +1,5 @@
 <div align="center">
+
 [![Go Report Card](https://goreportcard.com/badge/github.com/mmatongo/chew)](https://goreportcard.com/report/github.com/mmatongo/chew)
 [![GoDoc](https://godoc.org/github.com/mmatongo/chew?status.svg)](https://pkg.go.dev/github.com/mmatongo/chew)
 [![Maintainability](https://api.codeclimate.com/v1/badges/441cfd36f310c0c48878/maintainability)](https://codeclimate.com/github/mmatongo/chew/maintainability)
