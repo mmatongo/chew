@@ -38,6 +38,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"strings"
@@ -83,6 +84,8 @@ var contentTypeProcessors = map[string]func(io.Reader, string) ([]common.Chunk, 
 	contentTypeEPUB:     document.ProcessEpub,
 }
 
+type ProcessorFunc func(io.Reader, string) ([]common.Chunk, error)
+
 type Chew struct {
 	config        common.Config
 	httpClient    *http.Client
@@ -94,6 +97,7 @@ type Chew struct {
 	lastAccessMu  sync.Mutex
 	proxyIndex    int
 	proxyMu       sync.Mutex
+	processors    map[string]ProcessorFunc
 }
 
 type RateLimiter interface {
@@ -129,11 +133,24 @@ func New(config common.Config) *Chew {
 		config:      config,
 		robotsCache: make(map[string]*robotstxt.RobotsData),
 		lastAccess:  make(map[string]time.Time),
+		processors:  make(map[string]ProcessorFunc),
 	}
 	c.initHTTPClient()
 
 	limit := rate.Every(config.RateLimit)
 	c.rateLimiter = rate.NewLimiter(limit, config.RateBurst)
+
+	for contentType, processor := range contentTypeProcessors {
+		c.processors[contentType] = processor
+	}
+
+	for ext, processor := range validExtensions {
+		if mimeType := mime.TypeByExtension(ext); mimeType != "" {
+			c.processors[mimeType] = processor
+		}
+
+		c.processors[ext] = processor
+	}
 
 	return c
 }
@@ -269,6 +286,10 @@ func getProcessor(contentType, url string) (func(io.Reader, string) ([]common.Ch
 	return nil, fmt.Errorf("unsupported content type: %s", contentType)
 }
 
+func (c *Chew) AddProcessor(contentType string, processor ProcessorFunc) {
+	c.processors[contentType] = processor
+}
+
 /*
 Process takes a list of URLs and returns a list of Chunks
 
@@ -369,23 +390,12 @@ func (c *Chew) processURL(ctx context.Context, url string) ([]common.Chunk, erro
 		}
 		defer file.Close()
 
-		ext, _ := utils.GetFileExtension(filePath)
-		/*
-			Will leave this in here for now, but I think it's better to just check the file extension
-			instead of the content type returned.
-		*/
 		contentType := utils.GetFileContentType(file)
-
-		proc, err := getProcessor(contentType, filePath)
-		if err != nil {
-			proc, ok := validExtensions[ext]
-			if !ok {
-				return nil, fmt.Errorf("unsupported file type: %s", ext)
-			}
-			return proc(file, url)
+		if processor, ok := c.processors[contentType]; ok {
+			return processor(file, url)
 		}
 
-		return proc(file, url)
+		return nil, fmt.Errorf("unsupported content type: %s", contentType)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -402,10 +412,22 @@ func (c *Chew) processURL(ctx context.Context, url string) ([]common.Chunk, erro
 	defer resp.Body.Close()
 
 	contentType := resp.Header.Get("Content-Type")
+	if idx := strings.Index(contentType, ";"); idx != -1 {
+		contentType = contentType[:idx]
+	}
 
-	processor, err := getProcessor(contentType, url)
-	if err != nil {
-		return nil, err
+	processor, ok := c.processors[contentType]
+	if !ok {
+		ext, err := utils.GetFileExtension(url)
+		if err != nil {
+			return nil, fmt.Errorf("no processor found for content type %s and couldn't determine extension: %w", contentType, err)
+		}
+
+		contentType = mime.TypeByExtension(ext)
+		processor, ok = c.processors[contentType]
+		if !ok {
+			return nil, fmt.Errorf("unsupported content type: %s", contentType)
+		}
 	}
 
 	return processor(resp.Body, url)
